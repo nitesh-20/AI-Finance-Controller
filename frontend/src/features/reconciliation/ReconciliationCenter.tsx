@@ -1,24 +1,24 @@
 import React, { useState } from 'react';
-import { useFinance } from '../context/FinanceContext';
+import { useFinance } from '../../context/FinanceContext';
 import { 
   RotateCw, 
   Search, 
-  FileText, 
-  X, 
+  Filter, 
+  AlertCircle, 
   CheckCircle2, 
-  AlertTriangle,
-  ArrowDown,
-  ShieldCheck,
-  ShieldAlert,
+  Clock, 
+  TrendingUp, 
   ArrowRight,
-  Sparkles,
-  Layers,
-  ChevronDown,
-  ChevronUp,
-  Scale
+  ShieldCheck,
+  AlertTriangle,
+  ExternalLink,
+  ChevronRight,
+  SlidersHorizontal,
+  X,
+  FileCheck2
 } from 'lucide-react';
-import { FinancialRecord, TransactionAuditResult } from '../types';
-import { apiClient } from '../services/api';
+import { FinancialRecord, TransactionAuditResult } from '../../types';
+import { apiClient } from '../../services/api';
 
 export const ReconciliationCenter: React.FC = () => {
   const { 

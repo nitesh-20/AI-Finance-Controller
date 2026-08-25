@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useFinance } from '../context/FinanceContext';
+import { useFinance } from '../../context/FinanceContext';
 import { 
   AlertTriangle, 
   FileText, 
@@ -9,9 +9,13 @@ import {
   ArrowUpDown,
   Filter,
   ShieldAlert,
-  ArrowRight
+  ArrowRight,
+  SlidersHorizontal,
+  Layers,
+  Sparkles,
+  ExternalLink
 } from 'lucide-react';
-import { FinancialException, ExceptionStatus } from '../types';
+import { FinancialException, ExceptionStatus } from '../../types';
 
 export const ExceptionCenter: React.FC = () => {
   const { 

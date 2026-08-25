@@ -1,13 +1,16 @@
 import React from 'react';
 import { FinanceProvider, useFinance } from './context/FinanceContext';
-import { Navbar } from './components/Navbar';
-import { Sidebar } from './components/Sidebar';
-import { FinanceDashboard } from './components/FinanceDashboard';
-import { ReconciliationCenter } from './components/ReconciliationCenter';
-import { SettlementIntelligence } from './components/SettlementIntelligence';
-import { ExceptionCenter } from './components/ExceptionCenter';
-import VoiceAgent from './components/VoiceAgent';
-import { LayoutDashboard, CheckCheck, ArrowLeftRight, AlertTriangle } from 'lucide-react';
+import { Navbar } from './layouts/Navbar';
+import { Sidebar } from './layouts/Sidebar';
+import { FinanceDashboard } from './features/dashboard/FinanceDashboard';
+import { ReconciliationCenter } from './features/reconciliation/ReconciliationCenter';
+import { SettlementIntelligence } from './features/settlements/SettlementIntelligence';
+import { ExceptionCenter } from './features/exceptions/ExceptionCenter';
+import { CashPositionView } from './features/cash-position/CashPositionView';
+import { AIInsightsView } from './features/ai-insights/AIInsightsView';
+import { ReportsView } from './features/reports/ReportsView';
+import VoiceAgent from './features/voice/VoiceAgent';
+import { LayoutDashboard, CheckCheck, ArrowLeftRight, AlertTriangle, TrendingUp, Sparkles, FileText } from 'lucide-react';
 
 const MainLayout: React.FC = () => {
   const { activeTab, setActiveTab, isVoiceOpen, setIsVoiceOpen, exceptions } = useFinance();
@@ -20,7 +23,7 @@ const MainLayout: React.FC = () => {
 
       {/* Main Body */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Clean 4-Item Sidebar */}
+        {/* Operations Sidebar */}
         <Sidebar />
 
         {/* Main Content Area */}
@@ -30,6 +33,9 @@ const MainLayout: React.FC = () => {
             {activeTab === 'reconciliation' && <ReconciliationCenter />}
             {activeTab === 'settlements' && <SettlementIntelligence />}
             {activeTab === 'exceptions' && <ExceptionCenter />}
+            {activeTab === 'cash-position' && <CashPositionView />}
+            {activeTab === 'ai-insights' && <AIInsightsView />}
+            {activeTab === 'reports' && <ReportsView />}
           </div>
         </main>
       </div>
@@ -38,7 +44,7 @@ const MainLayout: React.FC = () => {
       <nav className="flex md:hidden border-t border-slate-200 bg-white px-2 py-1.5 justify-around items-center text-[10px] text-slate-500 z-30 shadow-xs">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`flex flex-col items-center py-1 px-3 rounded-md ${
+          className={`flex flex-col items-center py-1 px-2 rounded-md ${
             activeTab === 'overview' ? 'text-[#0c66e4] font-semibold' : ''
           }`}
         >
@@ -48,7 +54,7 @@ const MainLayout: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('reconciliation')}
-          className={`flex flex-col items-center py-1 px-3 rounded-md ${
+          className={`flex flex-col items-center py-1 px-2 rounded-md ${
             activeTab === 'reconciliation' ? 'text-[#0c66e4] font-semibold' : ''
           }`}
         >
@@ -58,7 +64,7 @@ const MainLayout: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('settlements')}
-          className={`flex flex-col items-center py-1 px-3 rounded-md ${
+          className={`flex flex-col items-center py-1 px-2 rounded-md ${
             activeTab === 'settlements' ? 'text-[#0c66e4] font-semibold' : ''
           }`}
         >
@@ -68,36 +74,40 @@ const MainLayout: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('exceptions')}
-          className={`flex flex-col items-center py-1 px-3 rounded-md relative ${
+          className={`flex flex-col items-center py-1 px-2 rounded-md relative ${
             activeTab === 'exceptions' ? 'text-[#0c66e4] font-semibold' : ''
           }`}
         >
           <AlertTriangle className="h-4 w-4 mb-0.5" />
           <span>Exceptions</span>
           {openExceptionsCount > 0 && (
-            <span className="absolute top-0.5 right-2 h-1.5 w-1.5 rounded-full bg-red-600" />
+            <span className="absolute -top-1 right-1 h-3.5 min-w-3.5 px-0.5 flex items-center justify-center rounded-full bg-red-600 text-[8px] font-bold text-white">
+              {openExceptionsCount}
+            </span>
           )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('cash-position')}
+          className={`flex flex-col items-center py-1 px-2 rounded-md ${
+            activeTab === 'cash-position' ? 'text-[#0c66e4] font-semibold' : ''
+          }`}
+        >
+          <TrendingUp className="h-4 w-4 mb-0.5" />
+          <span>Cash</span>
         </button>
       </nav>
 
-      {/* Global Persistent Voice Copilot Panel */}
-      <VoiceAgent
-        userId="demo-merchant-01"
-        role="merchant"
-        userName="Bharat Merchants"
-        isOpen={isVoiceOpen}
-        onClose={() => setIsVoiceOpen(false)}
-      />
+      {/* Global Ask Vaani Voice Copilot Drawer */}
+      {isVoiceOpen && <VoiceAgent onClose={() => setIsVoiceOpen(false)} />}
     </div>
   );
 };
 
-const App: React.FC = () => {
+export default function App() {
   return (
     <FinanceProvider>
       <MainLayout />
     </FinanceProvider>
   );
-};
-
-export default App;
+}

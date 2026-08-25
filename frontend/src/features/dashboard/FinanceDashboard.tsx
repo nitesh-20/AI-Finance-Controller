@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useFinance } from '../context/FinanceContext';
+import { useFinance } from '../../context/FinanceContext';
 import { 
   ShieldCheck, 
   AlertTriangle, 
@@ -18,7 +18,7 @@ import {
   Clock,
   FileText
 } from 'lucide-react';
-import { AttentionItem, ActionExecutionResponse } from '../types';
+import { AttentionItem, ActionExecutionResponse } from '../../types';
 
 export const FinanceDashboard: React.FC = () => {
   const { 

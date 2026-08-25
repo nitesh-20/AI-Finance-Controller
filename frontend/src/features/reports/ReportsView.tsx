@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useFinance } from '../context/FinanceContext';
+import { useFinance } from '../../context/FinanceContext';
 import { 
   FileText, 
   Download, 

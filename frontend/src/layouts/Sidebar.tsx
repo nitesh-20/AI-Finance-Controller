@@ -5,7 +5,9 @@ import {
   CheckCheck, 
   ArrowLeftRight, 
   AlertTriangle,
-  FileSpreadsheet
+  TrendingUp,
+  Sparkles,
+  FileText
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -29,7 +31,10 @@ export const Sidebar: React.FC = () => {
       icon: AlertTriangle, 
       badge: openExceptionsCount > 0 ? openExceptionsCount : undefined, 
       badgeColor: 'bg-red-50 text-red-700 font-semibold' 
-    }
+    },
+    { id: 'cash-position', label: 'Cash Position', icon: TrendingUp },
+    { id: 'ai-insights', label: 'AI Insights', icon: Sparkles },
+    { id: 'reports', label: 'Reports', icon: FileText }
   ];
 
   return (

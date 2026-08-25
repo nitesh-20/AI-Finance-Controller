@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { apiClient } from "../services/api";
+import { apiClient } from "../../services/api";
 import { 
   Mic, 
   MicOff, 
-  Loader2, 
+  Sparkles, 
   X, 
-  Send, 
-  CheckCircle2,
-  Sparkles
+  Bot, 
+  TrendingUp, 
+  CheckCircle2, 
+  ChevronRight 
 } from 'lucide-react';
-import { useFinance } from '../context/FinanceContext';
+import { useFinance } from '../../context/FinanceContext';
 
 interface VoiceAgentProps {
   userId: string;

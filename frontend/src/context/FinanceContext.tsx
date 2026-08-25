@@ -14,14 +14,14 @@ import {
 } from '../types';
 import { apiClient } from '../services/api';
 import { syntheticFinancialRecords, syntheticSettlementBatches } from '../data/financialDataset';
-import { runDeterministicReconciliation, ReconciliationBatchResult } from '../reconciliation/reconciliationEngine';
-import { computeSettlementIntelligence, SettlementOverview } from '../reconciliation/settlementEngine';
-import { calculateCashPosition } from '../reconciliation/cashPositionEngine';
-import { generateFinancialInsights } from '../reconciliation/aiInsightsEngine';
+import { runDeterministicReconciliation, ReconciliationBatchResult } from '../lib/reconciliationEngine';
+import { computeSettlementIntelligence, SettlementOverview } from '../lib/settlementEngine';
+import { calculateCashPosition } from '../lib/cashPositionEngine';
+import { generateFinancialInsights } from '../lib/aiInsightsEngine';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-export type AppTab = 'overview' | 'reconciliation' | 'settlements' | 'exceptions';
+export type AppTab = 'overview' | 'reconciliation' | 'settlements' | 'exceptions' | 'cash-position' | 'ai-insights' | 'reports';
 
 interface FinanceContextType {
   // Data

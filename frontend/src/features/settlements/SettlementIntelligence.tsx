@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
-import { useFinance } from '../context/FinanceContext';
+import { useFinance } from '../../context/FinanceContext';
 import { 
   FileText, 
   Clock, 
+  AlertCircle, 
   CheckCircle2, 
-  AlertTriangle, 
+  ArrowDownRight, 
+  Download, 
+  ChevronRight,
+  TrendingDown,
+  Layers,
   Building2,
   Calendar,
   X,
   Wallet
 } from 'lucide-react';
-import { SettlementRecord } from '../types';
+import { SettlementRecord } from '../../types';
 
 export const SettlementIntelligence: React.FC = () => {
   const { settlementOverview, cashPosition, cashForecast, exportReport } = useFinance();
