@@ -122,11 +122,11 @@ class TransactionAuditorService:
                 evidence.append(f"Observed Effective MDR: {effective_fee_pct:.2f}%")
                 evidence.append(f"Excess MDR variance: ₹{variance:,.2f}")
 
-            # Rule F: GST or Decimal Rounding Error
-            elif 0.05 < abs(variance) <= 1.50:
+            # Rule F: GST Calculation / Rounding Error
+            elif (0.05 < abs(variance) <= 1.50) or (record.actual_gst and abs(record.actual_gst - gst_on_mdr) > 1.0):
                 root_cause = RootCauseClassification.GST_ROUNDING_ERROR.value
-                confidence = 99
-                why_flagged = f"Minor fractional difference of ₹{variance:,.2f} caused by 18% GST statutory fractional rounding."
+                confidence = 96
+                why_flagged = f"GST difference of ₹{abs((record.actual_gst or 0) - gst_on_mdr):,.2f} detected on gateway fee calculations."
                 recommended_action = RecommendedAction.JOURNAL_ADJUSTMENT.value
                 evidence.append(f"Expected GST: ₹{gst_on_mdr:,.2f}")
                 evidence.append(f"Actual GST: ₹{(record.actual_gst or gst_on_mdr):,.2f}")
@@ -252,7 +252,17 @@ class TransactionAuditorService:
             auditedAt=datetime.now(timezone.utc).isoformat()
         )
 
-    def audit_all_transactions(self, records: List[FinancialRecordModel]) -> List[TransactionAuditResultModel]:
+    def audit_all_transactions(self, records: Optional[List[FinancialRecordModel]] = None) -> List[TransactionAuditResultModel]:
+        if records is None:
+            from .transaction_service import transaction_service
+            records = transaction_service.get_all_records()
         return [self.audit_transaction(r) for r in records]
+
+    def audit_single_transaction(self, transaction_id: str) -> Optional[TransactionAuditResultModel]:
+        from .transaction_service import transaction_service
+        record = transaction_service.get_record_by_id(transaction_id)
+        if not record:
+            return None
+        return self.audit_transaction(record)
 
 transaction_auditor = TransactionAuditorService()

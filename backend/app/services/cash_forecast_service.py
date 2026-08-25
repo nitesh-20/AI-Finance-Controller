@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 from ..models.finance import CashPositionModel, CashForecastDayModel
 from .settlement_service import settlement_service
 
@@ -62,10 +62,35 @@ class CashForecastService:
                     projectedInflow=round(inflow, 2),
                     projectedOutflow=round(outflow, 2),
                     projectedClosingBalance=round(rolling_balance, 2),
-                    confidenceScore=max(78, 98 - i * 3)
+                    confidenceScore=95
                 )
             )
 
         return cash_position, forecast
+
+    def get_current_position(self) -> Dict[str, Any]:
+        position, _ = self.calculate_cash_position_and_forecast()
+        return {
+            "current_available_cash": position.current_available_cash,
+            "expected_settlements_inflow": position.expected_settlements_inflow,
+            "pending_gateway_holdbacks": position.pending_gateway_holdbacks,
+            "refund_obligations": position.refund_obligations,
+            "projected_net_position": position.projected_net_position,
+            "pending_settlements": position.expected_settlements_inflow
+        }
+
+    def get_forecast_days(self, days: int = 7) -> List[Dict[str, Any]]:
+        _, forecast = self.calculate_cash_position_and_forecast()
+        return [
+            {
+                "date": f.date,
+                "day_label": f.day_label,
+                "projected_inflow": f.projected_inflow,
+                "projected_outflow": f.projected_outflow,
+                "closing_balance": f.projected_closing_balance,
+                "confidence_score": f.confidence_score
+            }
+            for f in forecast[:days]
+        ]
 
 cash_forecast_service = CashForecastService()

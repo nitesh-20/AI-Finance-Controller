@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from ..models.exception import FinancialExceptionModel
 from .transaction_service import transaction_service
@@ -36,5 +36,36 @@ class ExceptionService:
                     e.resolved_by = "Finance Controller Ops"
                 return e
         return None
+
+    def get_active_exceptions(self) -> List[Dict[str, Any]]:
+        return [
+            {
+                "id": e.id,
+                "exception_code": e.exception_code,
+                "transaction_id": e.transaction_id,
+                "type": e.type,
+                "severity": e.severity,
+                "variance": e.difference,
+                "status": e.status,
+                "description": e.ai_explanation,
+                "suggested_action": e.suggested_action
+            }
+            for e in self.get_all_exceptions()
+            if e.status != "RESOLVED"
+        ]
+
+    def get_exception_summary(self) -> Dict[str, Any]:
+        exceptions = self.get_all_exceptions()
+        active = [e for e in exceptions if e.status != "RESOLVED"]
+        by_type = {}
+        for e in active:
+            by_type[e.type] = by_type.get(e.type, 0) + 1
+        return {
+            "total_exceptions": len(exceptions),
+            "active_exceptions": len(active),
+            "by_type": by_type,
+            "critical_count": sum(1 for e in active if e.severity == "CRITICAL"),
+            "total_variance_impact": round(sum(abs(e.difference) for e in active), 2)
+        }
 
 exception_service = ExceptionService()

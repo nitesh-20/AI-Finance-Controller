@@ -172,4 +172,21 @@ class ReconciliationEngine:
             metrics=metrics
         )
 
+    def run_reconciliation(self, records: Optional[List[FinancialRecordModel]] = None) -> Dict[str, Any]:
+        if records is None:
+            from .transaction_service import transaction_service
+            records = transaction_service.get_all_records()
+        batch_res = self.reconcile_batch(records)
+        return {
+            "total_transactions": batch_res.metrics.total_records_processed,
+            "matched_count": batch_res.metrics.matched_count,
+            "mismatched_count": batch_res.metrics.exceptions_count,
+            "match_rate_percentage": batch_res.metrics.match_rate_percentage,
+            "total_gross": batch_res.metrics.total_gross_processed,
+            "total_reconciled": batch_res.metrics.total_reconciled_amount,
+            "total_variance": batch_res.metrics.total_exception_amount,
+            "records": [r.dict() for r in batch_res.records],
+            "exceptions": [e.dict() for e in batch_res.exceptions]
+        }
+
 reconciliation_engine = ReconciliationEngine()

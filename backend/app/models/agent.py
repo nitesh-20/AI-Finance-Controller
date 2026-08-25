@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 class ToolExecutionTrace(BaseModel):
     tool_name: str
@@ -19,11 +19,16 @@ class AgentChatRequest(BaseModel):
 class AgentChatResponse(BaseModel):
     response: str
     intent: str
-    tools_used: List[str]
-    reasoning_steps: List[str]
-    traces: List[ToolExecutionTrace]
+    tools_used: List[str] = []
+    reasoning_steps: List[str] = []
+    traces: List[ToolExecutionTrace] = []
     suggested_actions: List[str] = []
     action_type: Optional[str] = None  # e.g., navigate_to_exceptions, run_reconciliation
+    data_payload: Optional[Dict[str, Any]] = None
+
+    @property
+    def reply(self) -> str:
+        return self.response
 
 class AuditEventModel(BaseModel):
     id: str

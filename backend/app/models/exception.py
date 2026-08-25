@@ -35,5 +35,13 @@ class FinancialExceptionModel(BaseModel):
     resolved_by: Optional[str] = Field(None, alias="resolvedBy")
     evidence: ExceptionEvidenceModel
 
+    @property
+    def variance(self) -> float:
+        return self.difference
+
+    @property
+    def description(self) -> str:
+        return self.ai_explanation
+
     class Config:
         populate_by_name = True

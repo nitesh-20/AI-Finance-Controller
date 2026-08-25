@@ -1,6 +1,6 @@
 import json
 import os
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from ..models.settlement import SettlementRecordModel, SettlementOverviewModel
 
 DATA_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "settlements.json")
@@ -20,6 +20,9 @@ class SettlementService:
         if not self._batches:
             self.load_batches()
         return self._batches
+
+    def get_all_settlements(self) -> List[SettlementRecordModel]:
+        return self.get_all_batches()
 
     def get_settlement_overview(self) -> SettlementOverviewModel:
         batches = self.get_all_batches()
@@ -50,5 +53,20 @@ class SettlementService:
             pendingSettlementAmount=round(pending_settlement, 2),
             batches=batches
         )
+
+    def get_settlement_summary(self) -> Dict[str, Any]:
+        overview = self.get_settlement_overview()
+        return {
+            "total_batches": len(overview.batches),
+            "total_gross_settled": overview.total_gross_settled,
+            "total_settled_amount": overview.total_net_received,
+            "total_fees_deducted": overview.total_fees_deducted,
+            "total_gst_deducted": overview.total_gst_deducted,
+            "total_discrepancy_amount": overview.total_discrepancy_amount,
+            "pending_settlement_amount": overview.pending_settlement_amount
+        }
+
+    def get_discrepancies(self) -> List[SettlementRecordModel]:
+        return [b for b in self.get_all_batches() if b.status == "discrepancy" or b.difference != 0]
 
 settlement_service = SettlementService()

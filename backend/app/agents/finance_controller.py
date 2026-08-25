@@ -31,8 +31,8 @@ class FinanceControllerAgent:
         action_type = None
         suggested_actions = []
 
-        # 0. Intent: Action Execution Command (e.g. "Quarantine it", "Dispute it", "Apply adjustment")
-        if any(w in q for w in ["quarantine it", "dispute it", "refund it", "apply adjustment", "execute action", "resolve it"]):
+        # 0. Intent: Action Execution Command (e.g. "Quarantine it", "Quarantine the missing settlement", "Dispute it")
+        if any(w in q for w in ["quarantine", "dispute it", "refund it", "apply adjustment", "execute action", "resolve it"]):
             # Find the most prominent active exception to act upon
             risk_data = tool_rank_financial_risks()
             top_item = risk_data["attention_items"][0] if risk_data["attention_items"] else None
