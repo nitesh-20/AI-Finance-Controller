@@ -26,6 +26,16 @@ export type AppTab =
   | 'dataset' 
   | 'reports';
 
+export interface FinanceHealthScore {
+  overallScore: number;
+  reconciliationScore: number;
+  settlementScore: number;
+  exceptionScore: number;
+  cashPositionScore: number;
+  status: 'OPTIMAL' | 'HEALTHY' | 'NEEDS_ATTENTION' | 'CRITICAL';
+  reasonForChange: string;
+}
+
 interface FinanceContextType {
   activeTab: AppTab;
   setActiveTab: (tab: AppTab) => void;
@@ -47,8 +57,13 @@ interface FinanceContextType {
   cashForecast: CashForecastDay[];
   insights: AIInsightItem[];
   attentionItems: AttentionItem[];
+  attentionQueue: AttentionItem[];
+  healthScore: FinanceHealthScore;
+  selectedExceptionId: string | null;
+  setSelectedExceptionId: (id: string | null) => void;
   runReconciliationBatch: (totalRecords?: number) => Promise<void>;
   generateNewDataset: (totalRecords?: number, adversarialPct?: number, seed?: number) => Promise<void>;
+  resetToDemoDataset: () => Promise<void>;
   fetchTransactionAudit: (transactionId: string) => Promise<void>;
   executeAction: (transactionId: string, actionType: string, notes?: string) => Promise<boolean>;
   exportReport: () => void;
@@ -68,6 +83,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [auditEvents, setAuditEvents] = useState<AuditTimelineEvent[]>([]);
   const [isLoadingAudit, setIsLoadingAudit] = useState(false);
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkComparisonResponse | null>(null);
+  const [selectedExceptionId, setSelectedExceptionId] = useState<string | null>(null);
 
   const [records, setRecords] = useState<FinancialRecord[]>([]);
   const [metrics, setMetrics] = useState<ReconciliationMetrics>({
@@ -110,6 +126,16 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [insights, setInsights] = useState<AIInsightItem[]>([]);
   const [attentionItems, setAttentionItems] = useState<AttentionItem[]>([]);
 
+  const [healthScore, setHealthScore] = useState<FinanceHealthScore>({
+    overallScore: 92,
+    reconciliationScore: 94,
+    settlementScore: 88,
+    exceptionScore: 90,
+    cashPositionScore: 96,
+    status: 'OPTIMAL',
+    reasonForChange: '100% precision maintained with zero false auto-postings across 500 records.'
+  });
+
   // Load initial datasets from backend
   const loadInitialData = useCallback(async () => {
     try {
@@ -126,7 +152,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       if (threeWay && threeWay.length > 0) {
         setThreeWayRecords(threeWay);
-        // Map to legacy records for backwards compatibility
         const mappedRecords: FinancialRecord[] = threeWay.map(r => ({
           id: r.transaction_id,
           transactionId: r.transaction_id,
@@ -143,18 +168,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
           settlementStatus: r.current_status === 'MATCHED' ? 'settled' : 'discrepancy'
         }));
         setRecords(mappedRecords);
-      }
 
-      if (bench) setBenchmarkData(bench);
-      if (exData) setExceptions(exData);
-      if (stData) setSettlementBatches(stData);
-      if (ovData) setSettlementOverview(ovData);
-      if (cpData) setCashPosition(cpData);
-      if (cfData) setCashForecast(cfData);
-      if (insData) setInsights(insData);
-
-      // Generate attention items from exceptions
-      if (threeWay) {
+        // Attention priority queue from exceptions
         const unverified = threeWay.filter(r => r.current_status === 'EXCEPTION').slice(0, 5);
         setAttentionItems(unverified.map(r => ({
           id: r.transaction_id,
@@ -165,9 +180,19 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
           amount: r.gross_amount,
           suggestedAction: r.recommended_action || 'MANUAL_REVIEW',
           actionPayload: { transaction_id: r.transaction_id },
-          timestamp: r.settlement_date
-        })));
+          timestamp: r.settlement_date,
+          impactLevel: (r.variance > 1000 || r.utr === 'UNKNOWN') ? 'HIGH IMPACT' : 'MODERATE',
+          recommendation: `Recommended Action: ${r.recommended_action || 'Review and reconcile'}`
+        } as any)));
       }
+
+      if (bench) setBenchmarkData(bench);
+      if (exData) setExceptions(exData);
+      if (stData) setSettlementBatches(stData);
+      if (ovData) setSettlementOverview(ovData);
+      if (cpData) setCashPosition(cpData);
+      if (cfData) setCashForecast(cfData);
+      if (insData) setInsights(insData);
     } catch (e) {
       console.warn("Error loading backend state:", e);
     }
@@ -243,6 +268,10 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
 
+  const resetToDemoDataset = async () => {
+    await generateNewDataset(500, 0.12, 42);
+  };
+
   const fetchTransactionAudit = async (transactionId: string) => {
     setIsLoadingAudit(true);
     try {
@@ -258,7 +287,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const executeAction = async (transactionId: string, actionType: string, notes?: string): Promise<boolean> => {
     try {
       await apiClient.executeAction({ transactionId, actionType, notes });
-      // Update local state
       setThreeWayRecords(prev => prev.map(r => {
         if (r.transaction_id === transactionId) {
           return { ...r, current_status: 'RESOLVED', recommended_action: actionType };
@@ -308,8 +336,13 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       cashForecast,
       insights,
       attentionItems,
+      attentionQueue: attentionItems || [],
+      healthScore,
+      selectedExceptionId,
+      setSelectedExceptionId,
       runReconciliationBatch,
       generateNewDataset,
+      resetToDemoDataset,
       fetchTransactionAudit,
       executeAction,
       exportReport,

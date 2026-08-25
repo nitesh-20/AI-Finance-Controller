@@ -259,7 +259,7 @@ export const FinanceDashboard: React.FC = () => {
           </div>
 
           <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
-            {attentionQueue.length > 0 ? (
+            {(attentionQueue && attentionQueue.length > 0) ? (
               attentionQueue.map((item, idx) => {
                 const isCritical = item.severity === 'CRITICAL' || item.amount >= 10000;
                 return (
