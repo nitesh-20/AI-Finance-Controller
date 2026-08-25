@@ -440,7 +440,7 @@ python3 -m uvicorn app.main:app --port 8000 --host 0.0.0.0 --reload
 
 ### 3. React Frontend Setup
 ```bash
-cd ../Vaani-AI
+cd ../frontend
 
 # Install dependencies
 npm install
@@ -448,7 +448,7 @@ npm install
 # Start Vite development server
 npm run dev
 ```
-*Frontend application available at: `http://localhost:3000`*
+*Frontend application available at: `http://localhost:5173` (or `http://localhost:3000` in production)*
 
 ---
 
@@ -464,7 +464,7 @@ cp .env.example .env
 cp backend/.env.example backend/.env
 
 # Frontend template
-cp Vaani-AI/.env.example Vaani-AI/.env
+cp frontend/.env.example frontend/.env
 ```
 
 ### Required Variables:
