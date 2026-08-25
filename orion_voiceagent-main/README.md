@@ -1,143 +1,74 @@
-# 🎙️ Vaani Voice Agent
+# 🎙️ Vaani Real-Time Voice Sidecar — WebRTC AI Finance Copilot
 
-A real-time AI voice conversation system for interactive teaching and learning. Built with LiveKit for WebRTC streaming, Python for the AI agent backend, and React for the client interface.
+> **Razorpay AI Buildathon — Track 04: AI Finance Controller ("Run the books and the cash position")**
+> Low-latency WebRTC Voice Agent sidecar powered by LiveKit, Deepgram, Groq / Gemini, and ElevenLabs.
+
+---
 
 ## 🏗️ Architecture
 
-```
-┌──────────────────────────────────────────────┐
-│                  USER                        │
-│        (Browser / Mobile App)                │
-│                                              │
-│  🎤 Mic Input        🔊 Speaker Output        │
-│                                              │
-│  (React + LiveKit SDK)                        │
-└───────────────▲──────────────────────────────┘
-                │  WebRTC Audio Stream
-                │
-┌───────────────┴──────────────────────────────┐
-│              LIVEKIT SERVER                   │
-│        (LiveKit Cloud / Self-hosted)          │
-│                                              │
-│  • Real-time audio routing                   │
-│  • Room / session management                 │
-│  • Low-latency streaming                     │
-│  • Interrupt handling                        │
-└───────────────▲──────────────────────────────┘
-                │  Audio Frames (16kHz PCM)
-                │
-┌───────────────┴──────────────────────────────┐
-│              AI VOICE AGENT                  │
-│          (Python + LiveKit Agents SDK)        │
-│                                              │
-│  1️⃣ Audio Ingestion (LiveKit)                 │
-│  2️⃣ Speech → Text (Whisper)                   │
-│  3️⃣ Conversation Intelligence (GPT-4o)        │
-│  4️⃣ Response Generation                       │
-│  5️⃣ Text → Speech (ElevenLabs)                │
-│  6️⃣ Audio Publisher (LiveKit)                 │
-└──────────────────────────────────────────────┘
+```text
+┌──────────────────────────────────────────────────────────────┐
+│                    MERCHANT / CFO INTERFACE                  │
+│                     (React + WebRTC SDK)                     │
+│                                                              │
+│   🎤 Live Audio Input            🔊 Sub-second Voice Stream  │
+└──────────────────────────────▲───────────────────────────────┘
+                               │ WebRTC Real-Time Channel
+┌──────────────────────────────┴───────────────────────────────┐
+│                    LIVEKIT WEBRTC ROUTER                     │
+│               (LiveKit Cloud / Local Server)                 │
+│                                                              │
+│   • Low-latency audio packet routing                         │
+│   • Silero Voice Activity Detection (VAD)                    │
+│   • Instant interrupt handling & barge-in                    │
+└──────────────────────────────▲───────────────────────────────┘
+                               │ 16kHz PCM Stream
+┌──────────────────────────────┴───────────────────────────────┐
+│              VAANI FINANCE AGENT (Python Sidecar)            │
+│                                                              │
+│   1️⃣ Ingestion: LiveKit Agents 1.x                           │
+│   2️⃣ STT: Deepgram Nova-2 (Hinglish/English)                │
+│   3️⃣ Core: Finance Operations Intelligence                   │
+│   4️⃣ Tool Calling: Reconciliation & Cash Engines             │
+│   5️⃣ TTS: ElevenLabs Low-Latency Neural Audio               │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-## 🚀 Quick Start
+---
 
-### Prerequisites
+## ⚡ Key Capabilities for AI Finance Controller
 
-- Python 3.11+
-- Node.js 18+
-- LiveKit Cloud account (or self-hosted LiveKit server)
-- OpenAI API key
-- ElevenLabs API key
+1. **Deterministic Financial Anomaly Explanations**:
+   - Understands questions like *"₹400 ka difference kahan se aaya?"*, *"Show unresolved exceptions"*, and *"What's our cash runway?"*.
+2. **Instant Interruptibility / Barge-in**:
+   - Supports natural speech interruptions via Silero VAD without buffer delays.
+3. **Bilingual Conversational Fluency**:
+   - Seamlessly speaks in natural merchant Hinglish or formal English.
+4. **Zero-Hallucination Grounding**:
+   - Ingests structured merchant ledger data and reconciliation manifests.
 
-### Backend Setup
+---
 
+## 🚀 Quickstart
+
+### 1. Backend Service
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
-
-# Configure environment variables
-cp .env.example .env
-# Edit .env with your API keys
-
-# Run the agent
-python agent.py dev
+python3 agent.py dev
 ```
 
-### Frontend Setup
-
+### 2. Client Web Interface
 ```bash
 cd client
 npm install
 npm run dev
 ```
 
-Open http://localhost:5173 in your browser and start talking to Vaani! 🎤
-
-## 🔑 Environment Variables
-
-### Backend (.env)
-
-```env
-# LiveKit Configuration
-LIVEKIT_URL=wss://your-livekit-server.livekit.cloud
-LIVEKIT_API_KEY=your_api_key
-LIVEKIT_API_SECRET=your_api_secret
-
-# OpenAI (for Whisper STT and GPT-4o)
-OPENAI_API_KEY=your_openai_api_key
-
-# ElevenLabs (for TTS)
-ELEVENLABS_API_KEY=your_elevenlabs_api_key
-ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM  # Default: Rachel
-
-# Agent Configuration
-AGENT_NAME=Vaani
-SYSTEM_PROMPT=You are Vaani, an expert AI teacher...
-```
-
-### Frontend (.env)
-
-```env
-VITE_LIVEKIT_URL=wss://your-livekit-server.livekit.cloud
-```
-
-## 📚 Features
-
-- ✅ Real-time voice conversation with AI
-- ✅ Low-latency audio streaming (< 500ms)
-- ✅ Natural interruption handling
-- ✅ Context-aware responses
-- ✅ Teacher-style explanations
-- ✅ Beautiful, modern UI
-- ✅ Mobile-responsive design
-
-## 🛠️ Tech Stack
-
-- **Frontend**: React + Vite + LiveKit SDK
-- **Backend**: Python + LiveKit Agents SDK
-- **STT**: OpenAI Whisper
-- **LLM**: GPT-4o
-- **TTS**: ElevenLabs
-- **WebRTC**: LiveKit
-
-## 📖 Documentation
-
-- [Architecture Overview](docs/architecture.md)
-- [API Documentation](docs/api.md)
-- [Deployment Guide](docs/deployment.md)
-
-## 🤝 Contributing
-
-Contributions welcome! Please read our contributing guidelines first.
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
 ---
 
-Built with ❤️ by the Vaani team
- 
- 
+## 🧪 Integration with AI Finance Controller
+This real-time WebRTC sidecar complements the main **AI Finance Controller** platform (`/Vaani-AI` and `/backend`), offering ultra-low-latency voice interactions for merchant operations.
