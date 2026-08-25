@@ -8,14 +8,19 @@ import {
   CheckCircle2, 
   Clock, 
   TrendingUp, 
-  ArrowRight,
+  ArrowRight, 
   ShieldCheck,
   AlertTriangle,
   ExternalLink,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   SlidersHorizontal,
   X,
-  FileCheck2
+  FileCheck2,
+  FileText,
+  Scale,
+  Layers
 } from 'lucide-react';
 import { FinancialRecord, TransactionAuditResult } from '../../types';
 import { apiClient } from '../../services/api';

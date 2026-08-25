@@ -8,24 +8,26 @@ import {
   Bot, 
   TrendingUp, 
   CheckCircle2, 
-  ChevronRight 
+  ChevronRight,
+  Loader2,
+  Send
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 
 interface VoiceAgentProps {
-  userId: string;
-  role: 'merchant' | 'customer';
-  userName: string;
-  isOpen: boolean;
+  userId?: string;
+  role?: 'merchant' | 'customer';
+  userName?: string;
+  isOpen?: boolean;
   onClose: () => void;
 }
 
 export const VoiceAgent: React.FC<VoiceAgentProps> = ({ 
-  userId, 
+  userId = 'user_merchant_1', 
   role = 'merchant', 
   userName = 'Merchant',
-  isOpen,
-  onClose
+  isOpen = true,
+  onClose 
 }) => {
   const { handleVoiceNavigation, metrics, cashPosition, exceptions, settlementOverview } = useFinance();
 

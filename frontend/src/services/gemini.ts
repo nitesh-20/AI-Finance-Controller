@@ -1,24 +1,37 @@
 import { GoogleGenAI, Modality, LiveServerMessage, Type } from "@google/genai";
-import { collection, query, where, getDocs, orderBy, limit, Timestamp, doc, updateDoc } from "firebase/firestore";
-import { db } from "../firebase";
-import { Transaction } from "../types";
-import { mockTransactions, kiranaInventory } from "../mockData";
+import { FinancialRecord, Transaction } from "../types";
 import { syntheticFinancialRecords, syntheticSettlementBatches } from "../data/financialDataset";
-import { runDeterministicReconciliation } from "../reconciliation/reconciliationEngine";
+import { runDeterministicReconciliation } from "../lib/reconciliationEngine";
 
 const getAI = () => {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+  const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (window as any).__ENV__?.VITE_GEMINI_API_KEY || '';
   if (!apiKey) {
     console.warn("Gemini API Key is missing! Please set VITE_GEMINI_API_KEY in your environment.");
   }
   return new GoogleGenAI({ apiKey });
 };
 
+// Map synthetic financial records to legacy transaction interface for fallback querying
+const inMemoryTransactions: Transaction[] = syntheticFinancialRecords.map((r) => ({
+  id: r.id,
+  amount: r.grossAmount,
+  type: 'Received',
+  category: r.paymentMethod === 'UPI' ? 'Digital Payout' : 'Card Collection',
+  status: r.status === 'success' ? 'success' : 'failed',
+  timestamp: r.timestamp,
+  merchantName: 'Razorpay Merchant Store',
+  customerName: r.customerName,
+  referenceId: r.transactionId
+}));
+
 export const getTransactions = async (userId: string, role: 'merchant' | 'customer', days: number = 1): Promise<Transaction[]> => {
   const now = new Date();
   const startTime = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
   
-  return mockTransactions.filter((t: Transaction) => t.timestamp >= startTime).sort((a: Transaction, b: Transaction) => b.timestamp.localeCompare(a.timestamp)).slice(0, 20);
+  return inMemoryTransactions
+    .filter((t: Transaction) => t.timestamp >= startTime)
+    .sort((a: Transaction, b: Transaction) => b.timestamp.localeCompare(a.timestamp))
+    .slice(0, 20);
 };
 
 export const getSummary = async (userId: string, role: 'merchant' | 'customer', period: 'today' | 'week' | 'month' = 'today') => {
@@ -35,7 +48,7 @@ export const getSummary = async (userId: string, role: 'merchant' | 'customer', 
 export const verifyPayment = async (userId: string, amount: number, timeWindowMinutes: number = 10): Promise<Transaction[]> => {
   const startTime = new Date(new Date().getTime() - timeWindowMinutes * 60 * 1000).toISOString();
   
-  return mockTransactions.filter((t: Transaction) => 
+  return inMemoryTransactions.filter((t: Transaction) => 
     t.amount === amount && 
     t.timestamp >= startTime && 
     t.status === 'success'
@@ -57,7 +70,7 @@ export const queryTransactions = async (
     searchQuery?: string;
   }
 ): Promise<Transaction[]> => {
-  let result = [...mockTransactions];
+  let result = [...inMemoryTransactions];
 
   if (filters.searchQuery) {
     const q = filters.searchQuery.toLowerCase();
@@ -85,41 +98,21 @@ export const queryTransactions = async (
 };
 
 export const categorizeTransaction = async (transactionId: string, category: string) => {
-  const transactionRef = doc(db, "transactions", transactionId);
-  await updateDoc(transactionRef, { category });
+  const txn = inMemoryTransactions.find(t => t.id === transactionId || t.referenceId === transactionId);
+  if (txn) {
+    txn.category = category;
+  }
   return { success: true, message: `Transaction categorized as ${category}` };
 };
 
 export const checkDispute = async (userId: string, amount: number, referenceId?: string) => {
-  const transactionsRef = collection(db, "transactions");
-  
-  let q = query(
-    transactionsRef,
-    where("merchantId", "==", userId),
-    where("amount", "==", amount),
-    where("status", "==", "success")
+  const match = inMemoryTransactions.find(t => 
+    t.amount === amount && (!referenceId || t.referenceId === referenceId)
   );
-  
-  if (referenceId) {
-    q = query(q, where("referenceId", "==", referenceId));
+  if (match) {
+    return { status: "success", count: 1, message: "Payment verified in settlement records." };
   }
-  
-  const querySnapshot = await getDocs(q);
-  if (querySnapshot.empty) {
-    const failedQ = query(
-      transactionsRef,
-      where("merchantId", "==", userId),
-      where("amount", "==", amount),
-      where("status", "==", "failed")
-    );
-    const failedSnapshot = await getDocs(failedQ);
-    if (!failedSnapshot.empty) {
-      return { status: "failed", count: failedSnapshot.size, message: "Found failed payments for this amount." };
-    }
-    return { status: "missing", message: "No payment found for this amount." };
-  }
-  
-  return { status: "success", count: querySnapshot.size, message: "Payment verified successfully." };
+  return { status: "missing", message: "No payment found for this amount." };
 };
 
 export const suggestCategory = (merchantName: string): string => {
@@ -147,22 +140,22 @@ export const tools = [
       },
       {
         name: "getSummary",
-        description: "Get a summary of total earnings or spending for a specific period.",
+        description: "Get total spent/received summary for a period.",
         parameters: {
           type: Type.OBJECT,
           properties: {
-            period: { type: Type.STRING, enum: ["today", "week", "month"], description: "The period for the summary" }
+            period: { type: Type.STRING, description: "Period: today, week, or month" }
           }
         }
       },
       {
         name: "verifyPayment",
-        description: "Verify if a specific amount was received recently.",
+        description: "Verify if a payment of a specific amount was received recently.",
         parameters: {
           type: Type.OBJECT,
           properties: {
-            amount: { type: Type.NUMBER, description: "The amount to verify" },
-            timeWindowMinutes: { type: Type.NUMBER, description: "Minutes to look back (default 10)" }
+            amount: { type: Type.NUMBER, description: "Payment amount to check" },
+            timeWindowMinutes: { type: Type.NUMBER, description: "Time window in minutes (default 10)" }
           },
           required: ["amount"]
         }
@@ -171,112 +164,25 @@ export const tools = [
   }
 ];
 
-export const createLiveSession = (userId: string, role: 'merchant' | 'customer', callbacks: any) => {
-  console.log("Connecting to Vaani AI Finance Controller Live Session...");
-
-  const fetchWithRetry = async (url: string, options?: RequestInit, retries = 2, delay = 1000): Promise<Response> => {
-    try {
-      const response = await fetch(url, options);
-      if (!response.ok && retries > 0) throw new Error(`HTTP ${response.status}`);
-      return response;
-    } catch (err) {
-      if (retries > 0) {
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return fetchWithRetry(url, options, retries - 1, delay * 2);
-      }
-      throw err;
-    }
-  };
-
-  const healthUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/health` : 'http://localhost:3000/api/health';
-  fetchWithRetry(healthUrl)
-    .then(r => r.json())
-    .then(d => console.log("Backend Status:", d.status))
-    .catch(err => console.error("Backend Health Check Error:", err));
-
-  const connectWithRetry = async (retries = 2, delay = 1000): Promise<any> => {
-    try {
-      const now = new Date();
-      const currentDate = now.toLocaleDateString('en-IN', { 
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Kolkata' 
-      });
-      const currentTime = now.toLocaleTimeString('en-IN', { 
-        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' 
-      });
-
-      // Run live deterministic reconciliation to get ground truth metrics
-      const recon = runDeterministicReconciliation(syntheticFinancialRecords);
-      const metrics = recon.metrics;
-      const exceptions = recon.exceptions;
-
-      const exceptionSummaries = exceptions.map(e => 
-        `- [${e.exceptionCode}] ${e.type} (Txn: ${e.transactionId}, Expected: ₹${e.expectedAmount}, Actual: ₹${e.actualAmount}, Diff: ₹${e.difference}): ${e.aiExplanation}`
-      ).join('\n');
-
-      const financePrompt = `
-You are Vaani, the voice-native AI Finance Controller & Virtual CFO for modern Indian merchants.
-You empower merchants to reconcile payments, detect settlement discrepancies, explain financial exceptions, and control cash flow with zero hallucination.
-
-[LIVE FINANCIAL CONTEXT - VERIFIED DETERMINISTIC TRUTH]
-Today's Date: ${currentDate}
-Current Time: ${currentTime}
-Total Records Processed: ${metrics.totalRecordsProcessed}
-Successfully Matched Records: ${metrics.matchedCount}
-Pending / Partial Records: ${metrics.partialCount}
-Unresolved Exceptions: ${metrics.exceptionsCount}
-Reconciliation Match Rate: ${metrics.matchRatePercentage}%
-Total Gross Volume Processed: ₹${metrics.totalGrossProcessed.toLocaleString('en-IN')}
-Total Reconciled Amount: ₹${metrics.totalReconciledAmount.toLocaleString('en-IN')}
-Total Exception Amount: ₹${metrics.totalExceptionAmount.toLocaleString('en-IN')}
-Total Gateway Fees & GST Deducted: ₹${metrics.totalFeesPaid.toLocaleString('en-IN')}
-
-[CURRENT CASH POSITION & LIQUIDITY]
-Available Cash: ₹2,46,500
-Pending Gateway Settlements Inflow (T+1): ₹58,820
-Refund Obligations Buffer: ₹12,500
-Projected 7-Day Net Cash Position: ₹3,18,200
-
-[ACTIVE FINANCIAL EXCEPTIONS LIST - VERIFIED EVIDENCE]:
-${exceptionSummaries}
-
-[CRITICAL INSTRUCTIONS FOR VAANI]
-1. ACCURACY & ZERO HALLUCINATION:
-- Whenever asked about balances, match rates, differences, or exceptions, ALWAYS use the verified deterministic values above.
-- NEVER invent financial figures.
-- Example: If asked "₹400 ka difference kahan se aaya?", reply: "Rajesh Nair ke transaction TXN_98217345 par gateway ne ₹400 ka chargeback deduction kiya hai."
-- If asked "Kitne exceptions open hain?", reply: "Aapke 4 financial exceptions open hain, jisme total ₹27,488 ki variance hai."
-- If asked "Match rate kitna hai?", reply: "Aapka automated match rate 92.3% hai, jisme 48 records match ho chuke hain."
-- If asked "Aaj ka settlement kitna hai?", reply: "Aaj ka expected settlement ₹57,431.85 hai jo T+1 cycle me pipeline me hai."
-- If asked "Cash position kya hai?", reply: "Aapka available cash ₹2.46 lakh hai aur projected 7-day position ₹3.18 lakh hai."
-
-2. NATURAL HINGLISH VOICE CONVERSATION:
-- Speak in warm, concise, professional Hinglish (Hindi + English).
-- Keep answers ultra-concise (1 to 2 sentences max) so voice playback is fast and responsive.
-- Always sound like a high-calibre financial controller.
-      `;
-
-      const ai = getAI();
-      return await ai.live.connect({
-        model: "gemini-2.5-flash-native-audio-preview-12-2025", 
-        callbacks,
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } },
-          },
-          systemInstruction: financePrompt,
-          outputAudioTranscription: {},
-          inputAudioTranscription: {}
-        },
-      });
-    } catch (err) {
-      if (retries > 0) {
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return connectWithRetry(retries - 1, delay * 2);
-      }
-      throw err;
-    }
-  };
-
-  return connectWithRetry();
-};
+export async function askGemini(prompt: string, context?: any) {
+  const ai = getAI();
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `You are Vaani, an intelligent AI Finance Controller. Answer the user prompt accurately based on financial facts.\nContext: ${JSON.stringify(context || {})}\nPrompt: ${prompt}`
+            }
+          ]
+        }
+      ]
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Gemini API Error:", error);
+    return "I am currently unable to connect to Gemini Live AI. Please verify your VITE_GEMINI_API_KEY.";
+  }
+}
