@@ -1066,7 +1066,7 @@ export const syntheticSettlementBatches: SettlementRecord[] = [
     netSettlementExpected: 106173.74,
     netSettlementActual: 106173.74,
     difference: 0,
-    status: 'settled',
+    status: 'PROCESSED',
     utrNumber: 'HDFC262319081234',
     bankAccountLast4: '4892',
     discrepanciesCount: 0
@@ -1083,7 +1083,7 @@ export const syntheticSettlementBatches: SettlementRecord[] = [
     netSettlementExpected: 55163.27,
     netSettlementActual: 54763.27,
     difference: -400.00,
-    status: 'discrepancy',
+    status: 'DISCREPANCY',
     utrNumber: 'HDFC262320095819',
     bankAccountLast4: '4892',
     discrepanciesCount: 1,
@@ -1101,7 +1101,7 @@ export const syntheticSettlementBatches: SettlementRecord[] = [
     netSettlementExpected: 70056.10,
     netSettlementActual: 69667.30,
     difference: -388.80,
-    status: 'discrepancy',
+    status: 'DISCREPANCY',
     utrNumber: 'HDFC262321049281',
     bankAccountLast4: '4892',
     discrepanciesCount: 2,
@@ -1119,7 +1119,8 @@ export const syntheticSettlementBatches: SettlementRecord[] = [
     netSettlementExpected: 57431.85,
     netSettlementActual: 0,
     difference: 0,
-    status: 'pending',
+    status: 'PENDING',
+    utrNumber: 'PENDING_BANK_BATCH',
     bankAccountLast4: '4892',
     discrepanciesCount: 0
   }

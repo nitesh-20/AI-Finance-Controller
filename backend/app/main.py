@@ -2,7 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .core.config import settings
 from .core.logging import setup_logging, logger
-from .api import reconciliation, settlements, exceptions, cash, insights, agent, reports, audit, health_router, action_router
+from .api import (
+    reconciliation, settlements, exceptions, cash, insights, 
+    agent, reports, audit, health_router, action_router, 
+    performance, dataset
+)
 
 setup_logging()
 
@@ -30,6 +34,8 @@ app.include_router(insights.router, prefix=settings.API_PREFIX)
 app.include_router(agent.router, prefix=settings.API_PREFIX)
 app.include_router(reports.router, prefix=settings.API_PREFIX)
 app.include_router(audit.router, prefix=settings.API_PREFIX)
+app.include_router(performance.router, prefix=settings.API_PREFIX)
+app.include_router(dataset.router, prefix=settings.API_PREFIX)
 app.include_router(health_router.router, prefix=settings.API_PREFIX)
 app.include_router(action_router.router, prefix=settings.API_PREFIX)
 

@@ -1,47 +1,34 @@
-import { SettlementRecord, FinancialRecord } from '../types';
+import { SettlementRecord, SettlementOverview } from '../types';
 
-export interface SettlementOverview {
-  totalGrossSettled: number;
-  totalNetReceived: number;
-  totalFeesDeducted: number;
-  totalGstDeducted: number;
-  totalDiscrepancyAmount: number;
-  pendingSettlementAmount: number;
-  batches: SettlementRecord[];
-}
-
-export function computeSettlementIntelligence(
-  batches: SettlementRecord[],
-  records: FinancialRecord[]
-): SettlementOverview {
-  let totalGrossSettled = 0;
-  let totalNetReceived = 0;
-  let totalFeesDeducted = 0;
-  let totalGstDeducted = 0;
+export function aggregateSettlementOverview(settlements: SettlementRecord[]): SettlementOverview {
+  let totalSettled = 0;
+  let pendingAmount = 0;
+  let totalFees = 0;
+  let totalTax = 0;
+  let discrepanciesCount = 0;
   let totalDiscrepancyAmount = 0;
-  let pendingSettlementAmount = 0;
 
-  batches.forEach(b => {
-    if (b.status === 'settled' || b.status === 'discrepancy') {
-      totalGrossSettled += b.grossVolume;
-      totalNetReceived += b.netSettlementActual;
-      totalFeesDeducted += b.gatewayFees;
-      totalGstDeducted += b.gstOnFees;
-      if (b.difference !== 0) {
-        totalDiscrepancyAmount += Math.abs(b.difference);
+  for (const s of settlements) {
+    if (s.status === 'PROCESSED' || s.status === 'settled' || s.status === 'DISCREPANCY' || s.status === 'discrepancy') {
+      totalSettled += (s.netSettlementAmount || s.netSettlementActual || 0);
+      totalFees += (s.totalFees || s.gatewayFees || 0);
+      totalTax += (s.totalTax || s.gstOnFees || 0);
+      if (s.varianceAmount || s.difference) {
+        discrepanciesCount++;
+        totalDiscrepancyAmount += Math.abs(s.varianceAmount || s.difference || 0);
       }
-    } else if (b.status === 'pending') {
-      pendingSettlementAmount += b.netSettlementExpected;
+    } else if (s.status === 'PENDING' || s.status === 'pending') {
+      pendingAmount += (s.netSettlementAmount || s.netSettlementExpected || 0);
     }
-  });
+  }
 
   return {
-    totalGrossSettled: Math.round(totalGrossSettled * 100) / 100,
-    totalNetReceived: Math.round(totalNetReceived * 100) / 100,
-    totalFeesDeducted: Math.round(totalFeesDeducted * 100) / 100,
-    totalGstDeducted: Math.round(totalGstDeducted * 100) / 100,
-    totalDiscrepancyAmount: Math.round(totalDiscrepancyAmount * 100) / 100,
-    pendingSettlementAmount: Math.round(pendingSettlementAmount * 100) / 100,
-    batches
+    totalSettledAmount: totalSettled,
+    pendingSettlementAmount: pendingAmount,
+    totalFeesDeducted: totalFees,
+    totalTaxDeducted: totalTax,
+    settlementDiscrepanciesCount: discrepanciesCount,
+    totalDiscrepancyAmount: totalDiscrepancyAmount,
+    nextSettlementDate: '2026-03-26'
   };
 }

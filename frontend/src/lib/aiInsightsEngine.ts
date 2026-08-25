@@ -34,9 +34,9 @@ export function generateFinancialInsights(
   }
 
   // Insight 2: Exception Root-Cause Analysis
-  const amountMismatches = exceptions.filter(e => e.type === 'AMOUNT_MISMATCH' || e.type === 'FEE_DISCREPANCY');
+  const amountMismatches = exceptions.filter(e => e.discrepancyType === 'AMOUNT_MISMATCH' || e.type === 'FEE_DISCREPANCY');
   if (amountMismatches.length > 0) {
-    const totalVariance = amountMismatches.reduce((sum, e) => sum + e.difference, 0);
+    const totalVariance = amountMismatches.reduce((sum, e) => sum + Math.abs(e.difference || 0), 0);
     insights.push({
       id: 'ins_fee_variance',
       title: 'Gateway Fee & Settlement Variance Detected',
@@ -51,7 +51,7 @@ export function generateFinancialInsights(
   }
 
   // Insight 3: Duplicate Transaction Alert
-  const duplicates = exceptions.filter(e => e.type === 'DUPLICATE_TRANSACTION');
+  const duplicates = exceptions.filter(e => e.discrepancyType === 'DUPLICATE_TRANSACTION' || e.type === 'DUPLICATE_TRANSACTION');
   if (duplicates.length > 0) {
     insights.push({
       id: 'ins_dup_alert',
@@ -59,7 +59,7 @@ export function generateFinancialInsights(
       category: 'ANOMALY',
       level: 'critical',
       summary: `${duplicates.length} duplicate customer payment capture(s) identified for immediate refund.`,
-      details: `Customer ${duplicates[0].evidence.rawTrace?.customer || 'Neha Deshmukh'} was charged twice for ${duplicates[0].orderId}.`,
+      details: `Customer was charged twice for order ${duplicates[0].orderId}.`,
       actionableStep: 'Initiate 1-click refund to prevent chargeback fees.',
       relatedIds: duplicates.map(e => e.transactionId),
       timestamp: new Date().toISOString()
@@ -73,8 +73,8 @@ export function generateFinancialInsights(
     category: 'CASH_FLOW',
     level: 'info',
     summary: `Available cash ₹${(cashPosition.currentAvailableCash / 100000).toFixed(2)}L plus ₹${(cashPosition.expectedSettlementsInflow / 100000).toFixed(2)}L pending gateway payouts.`,
-    details: `Net projected liquidity stands at ₹${(cashPosition.projectedNetPosition / 100000).toFixed(2)}L after factoring ₹12.5K refund buffer.`,
-    actionableStep: 'Forecast indicates zero working capital shortfall over the next 7 business days.',
+    details: `Net liquidity runway is positive at ₹${(cashPosition.projectedNetPosition / 100000).toFixed(2)}L factoring in ₹${(cashPosition.pendingGatewayHoldbacks / 1000).toFixed(1)}k holdbacks and ₹${(cashPosition.refundObligations / 1000).toFixed(1)}k refund reserves.`,
+    actionableStep: 'Cash reserves sufficient for regular operational disbursements.',
     timestamp: new Date().toISOString()
   });
 

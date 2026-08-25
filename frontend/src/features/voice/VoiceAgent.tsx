@@ -109,10 +109,10 @@ export const VoiceAgent: React.FC<VoiceAgentProps> = ({
 
     try {
       // 2. Call FastAPI Python Agent
-      const agentRes = await apiClient.chatWithAgent(queryText);
+      const agentRes: any = await apiClient.chatWithAgent(queryText);
 
-      const tracesSummary = agentRes.traces?.map(
-        (t: any) => `✓ ${t.tool_name.replace(/_/g, ' ')} (${t.tool_output_summary})`
+      const tracesSummary = agentRes?.traces?.map(
+        (t: any) => `✓ ${t.tool_name?.replace(/_/g, ' ')} (${t.tool_output_summary})`
       ) || ['✓ Executed deterministic matching tool', '✓ Verified bank payout ledger'];
 
       setActiveTraces([]);

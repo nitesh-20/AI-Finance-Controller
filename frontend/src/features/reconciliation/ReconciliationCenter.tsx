@@ -9,309 +9,266 @@ import {
   Clock, 
   TrendingUp, 
   ArrowRight, 
-  ShieldCheck,
-  AlertTriangle,
-  ExternalLink,
-  ChevronRight,
-  ChevronUp,
-  ChevronDown,
-  SlidersHorizontal,
-  X,
-  FileCheck2,
-  FileText,
-  Scale,
-  Layers
+  ShieldCheck, 
+  AlertTriangle, 
+  ExternalLink, 
+  ChevronRight, 
+  ChevronUp, 
+  ChevronDown, 
+  SlidersHorizontal, 
+  X, 
+  FileCheck2, 
+  FileText, 
+  Scale, 
+  Layers,
+  Sparkles,
+  Download,
+  Zap
 } from 'lucide-react';
-import { FinancialRecord, TransactionAuditResult } from '../../types';
-import { apiClient } from '../../services/api';
+import { ThreeWayReconciliationRecord } from '../../types';
 
 export const ReconciliationCenter: React.FC = () => {
   const { 
-    records, 
+    threeWayRecords, 
     metrics, 
     isReconciling, 
-    reconciliationProgress, 
-    progressStepMessage, 
-    runReconciliationBatch,
-    exportReport 
+    runReconciliationBatch, 
+    executeAction,
+    exportReport,
+    fetchTransactionAudit,
+    auditEvents,
+    isLoadingAudit
   } = useFinance();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'MATCHED' | 'EXCEPTIONS'>('ALL');
-  const [selectedRecord, setSelectedRecord] = useState<(FinancialRecord & { classification: string; discrepancyAmount: number }) | null>(null);
-  const [auditResult, setAuditResult] = useState<TransactionAuditResult | null>(null);
-  const [isLoadingAudit, setIsLoadingAudit] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'MATCHED' | 'EXCEPTIONS' | 'AI_PROPOSED'>('ALL');
+  const [selectedRecord, setSelectedRecord] = useState<ThreeWayReconciliationRecord | null>(null);
   const [showAuditTrail, setShowAuditTrail] = useState(true);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
 
-  const filteredRecords = records.filter(r => {
+  const filteredRecords = threeWayRecords.filter(r => {
     const q = searchQuery.toLowerCase();
     const matchesSearch = 
-      r.orderId.toLowerCase().includes(q) ||
-      r.transactionId.toLowerCase().includes(q) ||
-      r.customerName.toLowerCase().includes(q) ||
-      (r.arnNumber && r.arnNumber.toLowerCase().includes(q));
+      r.order_id.toLowerCase().includes(q) ||
+      r.transaction_id.toLowerCase().includes(q) ||
+      r.customer_name.toLowerCase().includes(q) ||
+      r.utr.toLowerCase().includes(q);
 
     if (!matchesSearch) return false;
 
-    if (selectedFilter === 'MATCHED') return r.classification === 'MATCHED';
-    if (selectedFilter === 'EXCEPTIONS') return r.classification !== 'MATCHED' && r.classification !== 'PARTIAL_MATCH';
+    if (selectedFilter === 'MATCHED') return r.current_status === 'MATCHED';
+    if (selectedFilter === 'EXCEPTIONS') return r.current_status === 'EXCEPTION';
+    if (selectedFilter === 'AI_PROPOSED') return r.match_method === 'AI_SEMANTIC' || r.current_status === 'AI_PROPOSED';
     return true;
   });
 
-  const handleSelectRecord = async (r: FinancialRecord & { classification: string; discrepancyAmount: number }) => {
-    setSelectedRecord(r);
-    setIsLoadingAudit(true);
-    setActionSuccessMessage(null);
-
-    try {
-      const res = await apiClient.getTransactionAudit(r.transactionId);
-      setAuditResult(res);
-    } catch (e) {
-      // Deterministic client fallback calculation
-      const gross = r.grossAmount;
-      const mdr = Math.round(gross * 0.02 * 100) / 100;
-      const gst = Math.round(mdr * 0.18 * 100) / 100;
-      const theoretical = Math.round((gross - mdr - gst) * 100) / 100;
-      const actual = r.actualSettlementAmount || 0;
-      const diff = Math.abs(Math.round((theoretical - actual) * 100) / 100);
-
-      setAuditResult({
-        transactionId: r.transactionId,
-        orderId: r.orderId,
-        customerName: r.customerName,
-        paymentMethod: r.paymentMethod,
-        reconciliationStatus: r.classification === 'MATCHED' ? 'MATCHED' : (r.classification === 'PARTIAL_MATCH' ? 'PENDING' : 'DISCREPANCY'),
-        varianceAmount: diff,
-        rootCause: r.classification === 'MATCHED' ? 'MATCHED' : (r.notes?.includes('chargeback') ? 'Unmapped Chargeback Reserve' : (r.actualGatewayFee && r.actualGatewayFee > mdr * 1.4 ? 'Wrong MDR Tier Applied' : 'Settlement Fee Variance')),
-        confidenceScore: r.classification === 'MATCHED' ? 100 : 94,
-        whyFlagged: r.notes || (r.classification === 'MATCHED' ? 'Calculations verified clean against contracted 2.0% MDR + 18% GST.' : 'Observed settlement deduction deviates from contractual schedule.'),
-        recommendedAction: r.classification === 'MATCHED' ? 'RECONCILE_CLEAN' : (r.transactionId.includes('DUP') ? 'REFUND_DUPLICATE' : (r.orderId.includes('UNKNOWN') ? 'QUARANTINE' : 'DISPUTE_RAZORPAY')),
-        waterfall: {
-          grossAmount: gross,
-          contractedMdrRate: 0.02,
-          mdrAmount: mdr,
-          gstRate: 0.18,
-          gstOnMdr: gst,
-          tdsRate: 0.0,
-          tdsAmount: 0.0,
-          theoreticalNetSettlement: theoretical,
-          actualNetSettled: actual,
-          variance: diff
-        },
-        evidence: [
-          `Payment Method: ${r.paymentMethod}`,
-          `Contracted MDR: 2.00% (₹${mdr.toFixed(2)})`,
-          `Statutory GST (18%): ₹${gst.toFixed(2)}`
-        ],
-        auditSteps: [
-          { stepNumber: 1, title: 'Transaction Received', description: `Ingested payment ${r.transactionId}`, status: 'COMPLETED', timestamp: r.timestamp },
-          { stepNumber: 2, title: 'Payment Details Normalized', description: `Standardized ${r.paymentMethod} metadata`, status: 'COMPLETED', timestamp: r.timestamp },
-          { stepNumber: 3, title: 'Contracted MDR Loaded', description: 'Verified 2.00% merchant tier', status: 'COMPLETED', timestamp: r.timestamp },
-          { stepNumber: 4, title: 'MDR Calculated', description: `₹${gross.toFixed(2)} × 2.00% = ₹${mdr.toFixed(2)}`, status: 'COMPLETED', timestamp: r.timestamp },
-          { stepNumber: 5, title: 'Statutory GST Calculated', description: `₹${mdr.toFixed(2)} × 18% = ₹${gst.toFixed(2)}`, status: 'COMPLETED', timestamp: r.timestamp },
-          { stepNumber: 6, title: 'TDS Evaluated', description: 'Section 194-O TDS: ₹0.00', status: 'COMPLETED', timestamp: r.timestamp },
-          { stepNumber: 7, title: 'Theoretical Settlement Calculated', description: `Theoretical Net: ₹${theoretical.toFixed(2)}`, status: 'COMPLETED', timestamp: r.timestamp },
-          { stepNumber: 8, title: 'Actual Settlement Compared', description: `Actual Bank Payout: ₹${actual.toFixed(2)}`, status: r.classification === 'MATCHED' ? 'COMPLETED' : 'FLAGGED', timestamp: r.settlementDate || r.timestamp },
-          { stepNumber: 9, title: 'Variance Calculated', description: `Variance: ₹${diff.toFixed(2)}`, status: r.classification === 'MATCHED' ? 'COMPLETED' : 'FLAGGED', timestamp: r.settlementDate || r.timestamp },
-          { stepNumber: 10, title: 'Root Cause & Recommendation', description: `Diagnosed ${r.classification}. Action: Recommended review`, status: 'COMPLETED', timestamp: new Date().toISOString() }
-        ],
-        auditedAt: new Date().toISOString()
-      });
-    } finally {
-      setIsLoadingAudit(false);
-    }
+  const handleSelectRecord = (rec: ThreeWayReconciliationRecord) => {
+    setSelectedRecord(rec);
+    fetchTransactionAudit(rec.transaction_id);
   };
 
-  const executeAuditorAction = (action: string) => {
-    setActionSuccessMessage(`✓ Executed action: ${action}. Audit ledger updated.`);
-    setTimeout(() => setActionSuccessMessage(null), 4000);
+  const handleAction = async (txnId: string, action: string) => {
+    const success = await executeAction(txnId, action, `Manual resolution: ${action}`);
+    if (success) {
+      setActionSuccessMessage(`Action '${action}' successfully executed on ${txnId}.`);
+      setTimeout(() => setActionSuccessMessage(null), 4000);
+    }
   };
 
   return (
     <div className="space-y-6 pb-12">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">Reconciliation &amp; Transaction Auditor</h1>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Deterministic 10-step arithmetic matching and root-cause diagnostics across merchant payments.
+          <div className="flex items-center space-x-2.5">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">3-Way Reconciliation Workspace</h1>
+            <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-semibold text-[#0c66e4]">
+              Deterministic Engine
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Reconciling Razorpay Settlement Manifests, Bank Credits, and Merchant Ledger Invoices with paise-level precision.
           </p>
         </div>
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => runReconciliationBatch()}
+            onClick={exportReport}
+            className="inline-flex items-center space-x-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Export Statement</span>
+          </button>
+          
+          <button
+            onClick={() => runReconciliationBatch(500)}
             disabled={isReconciling}
-            className="flex items-center space-x-1.5 rounded-md bg-[#0c66e4] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0052cc] transition-colors disabled:opacity-50"
+            className="inline-flex items-center space-x-1.5 rounded-md bg-[#0c66e4] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-[#0052cc] transition-colors disabled:opacity-50"
           >
             <RotateCw className={`h-3.5 w-3.5 ${isReconciling ? 'animate-spin' : ''}`} />
-            <span>{isReconciling ? 'Auditing Batch...' : 'Run Auto-Reconciliation'}</span>
-          </button>
-
-          <button
-            onClick={() => exportReport('reconciliation')}
-            className="flex items-center space-x-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-          >
-            <FileText className="h-3.5 w-3.5 text-slate-500" />
-            <span>Export Report</span>
+            <span>{isReconciling ? 'Reconciling...' : 'Run 500-Record Reconciliation'}</span>
           </button>
         </div>
       </div>
 
-      {/* Top Metrics Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-xs">
-          <span className="text-[11px] text-slate-500">Total Records</span>
-          <div className="text-lg font-bold text-slate-900 mt-0.5">{metrics.totalRecordsProcessed}</div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-xs">
-          <span className="text-[11px] text-slate-500">Matched Clean</span>
-          <div className="text-lg font-bold text-emerald-700 mt-0.5">{metrics.matchedCount}</div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-xs">
-          <span className="text-[11px] text-slate-500">Pending Settlement</span>
-          <div className="text-lg font-bold text-slate-900 mt-0.5">{metrics.partialCount}</div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-xs">
-          <span className="text-[11px] text-slate-500">Exceptions</span>
-          <div className="text-lg font-bold text-red-600 mt-0.5">{metrics.exceptionsCount}</div>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-xs">
-          <span className="text-[11px] text-slate-500">Match Rate</span>
-          <div className="text-lg font-bold text-slate-900 mt-0.5">{metrics.matchRatePercentage}%</div>
-        </div>
-      </div>
-
-      {/* Animated Pipeline State when Reconciling */}
-      {isReconciling && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 space-y-2 text-xs animate-fadeIn">
-          <div className="flex justify-between font-medium text-[#0c66e4]">
-            <span>{progressStepMessage}</span>
-            <span>{reconciliationProgress}%</span>
+      {/* Action Notification */}
+      {actionSuccessMessage && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 flex items-center justify-between animate-fadeIn">
+          <div className="flex items-center space-x-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span className="font-medium">{actionSuccessMessage}</span>
           </div>
-          <div className="h-1.5 w-full rounded-full bg-blue-100 overflow-hidden">
-            <div 
-              style={{ width: `${reconciliationProgress}%` }}
-              className="h-full bg-[#0c66e4] transition-all duration-300"
-            />
-          </div>
+          <button onClick={() => setActionSuccessMessage(null)} className="text-slate-400 hover:text-slate-600">
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
 
-      {/* Search & Filter Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search by Order ID, Transaction ID, or Customer..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-md border border-slate-200 bg-white pl-8 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:border-[#0c66e4] focus:outline-none"
-          />
-        </div>
-
-        <div className="flex items-center space-x-1 text-xs">
-          {[
-            { id: 'ALL', label: `All (${records.length})` },
-            { id: 'MATCHED', label: `Matched (${metrics.matchedCount})` },
-            { id: 'EXCEPTIONS', label: `Exceptions (${metrics.exceptionsCount})` }
-          ].map(tab => (
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+        <div className="flex items-center space-x-1.5 w-full sm:w-auto">
+          {(['ALL', 'MATCHED', 'EXCEPTIONS', 'AI_PROPOSED'] as const).map((filter) => (
             <button
-              key={tab.id}
-              onClick={() => setSelectedFilter(tab.id as any)}
-              className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
-                selectedFilter === tab.id
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              key={filter}
+              onClick={() => setSelectedFilter(filter)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                selectedFilter === filter
+                  ? 'bg-slate-900 text-white font-semibold'
+                  : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
-              {tab.label}
+              {filter === 'ALL' && `All (${threeWayRecords.length})`}
+              {filter === 'MATCHED' && `Matched (${threeWayRecords.filter(r => r.current_status === 'MATCHED').length})`}
+              {filter === 'EXCEPTIONS' && `Exceptions (${threeWayRecords.filter(r => r.current_status === 'EXCEPTION').length})`}
+              {filter === 'AI_PROPOSED' && `AI Residuals (${threeWayRecords.filter(r => r.match_method === 'AI_SEMANTIC').length})`}
             </button>
           ))}
         </div>
+
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-2 h-3.5 w-3.5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search by Txn, UTR, Customer..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-md border border-slate-200 pl-8 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:border-[#0c66e4] focus:outline-none"
+          />
+        </div>
       </div>
 
-      {/* Transaction Ledger Table */}
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xs">
+      {/* 3-Way Reconciliation Master Table */}
+      <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-500">
-              <tr>
-                <th className="py-2.5 px-3">Transaction</th>
-                <th className="py-2.5 px-3">Order</th>
-                <th className="py-2.5 px-3">Customer</th>
-                <th className="py-2.5 px-3 text-right">Gross (₹)</th>
-                <th className="py-2.5 px-3 text-right">MDR (2%) + GST</th>
-                <th className="py-2.5 px-3 text-right">Settlement (₹)</th>
-                <th className="py-2.5 px-3 text-right">Variance</th>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3 text-right">Audit</th>
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50/80 font-semibold text-slate-600">
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Transaction / UTR</th>
+                <th className="py-3 px-4">Order / Invoice</th>
+                <th className="py-3 px-4 text-right">Gross</th>
+                <th className="py-3 px-4 text-right">Fees (MDR+GST)</th>
+                <th className="py-3 px-4 text-right">Expected</th>
+                <th className="py-3 px-4 text-right">Bank Credit</th>
+                <th className="py-3 px-4 text-right">Variance</th>
+                <th className="py-3 px-4">Match Method</th>
+                <th className="py-3 px-4">Verifier Gate</th>
+                <th className="py-3 px-4 text-center">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filteredRecords.map((r) => {
-                const isException = r.classification !== 'MATCHED' && r.classification !== 'PARTIAL_MATCH';
+            <tbody className="divide-y divide-slate-100">
+              {filteredRecords.slice(0, 50).map((r) => {
+                const isMatched = r.current_status === 'MATCHED';
+                const isException = r.current_status === 'EXCEPTION';
+                const isVerified = r.verification_status === 'VERIFIED';
 
                 return (
-                  <tr 
-                    key={r.id}
+                  <tr
+                    key={r.transaction_id}
                     onClick={() => handleSelectRecord(r)}
-                    className="hover:bg-slate-50/80 cursor-pointer transition-colors"
+                    className="hover:bg-blue-50/40 cursor-pointer transition-colors"
                   >
-                    <td className="py-2.5 px-3 font-mono font-medium text-slate-900">
-                      {r.transactionId}
-                    </td>
-                    <td className="py-2.5 px-3 font-medium text-slate-700">
-                      {r.orderId}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-600">
-                      {r.customerName}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-medium text-slate-900">
-                      ₹{r.grossAmount.toLocaleString('en-IN')}
-                    </td>
-                    <td className="py-2.5 px-3 text-right text-slate-500">
-                      ₹{((r.actualGatewayFee || r.expectedGatewayFee) + (r.actualGst || r.expectedGst)).toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-medium">
-                      {r.actualSettlementAmount ? (
-                        <span className={isException ? 'text-red-700' : 'text-emerald-700'}>
-                          ₹{r.actualSettlementAmount.toLocaleString('en-IN')}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">₹{r.expectedSettlementAmount.toLocaleString('en-IN')} (Pending)</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-medium">
-                      {r.discrepancyAmount > 0 ? (
-                        <span className="text-red-700 font-semibold">₹{r.discrepancyAmount.toFixed(2)}</span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className="inline-flex items-center space-x-1">
-                        <span className={`h-1.5 w-1.5 rounded-full ${
-                          r.classification === 'MATCHED'
-                            ? 'bg-emerald-600'
-                            : r.classification === 'PARTIAL_MATCH'
-                            ? 'bg-blue-500'
-                            : 'bg-red-500'
-                        }`} />
-                        <span className={`text-[11px] font-medium ${
-                          isException ? 'text-red-700 font-semibold' : 'text-slate-700'
-                        }`}>
-                          {r.classification.replace(/_/g, ' ')}
-                        </span>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        isMatched
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-red-50 text-red-700'
+                      }`}>
+                        {r.current_status}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 text-right">
-                      <span className="inline-flex items-center space-x-0.5 text-[11px] font-semibold text-[#0c66e4] hover:underline">
-                        <span>Audit</span>
-                        <ArrowRight className="h-3 w-3" />
+
+                    <td className="py-3 px-4">
+                      <div className="font-mono font-medium text-slate-900">{r.transaction_id}</div>
+                      <div className="font-mono text-[10px] text-slate-400">UTR: {r.utr}</div>
+                    </td>
+
+                    <td className="py-3 px-4">
+                      <div className="text-slate-800">{r.order_id}</div>
+                      <div className="text-[10px] text-slate-400">{r.customer_name}</div>
+                    </td>
+
+                    <td className="py-3 px-4 text-right font-medium text-slate-900">
+                      ₹{r.gross_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+
+                    <td className="py-3 px-4 text-right text-red-600 font-mono">
+                      -₹{(r.mdr + r.gst_on_mdr).toFixed(2)}
+                    </td>
+
+                    <td className="py-3 px-4 text-right font-semibold text-slate-900">
+                      ₹{r.expected_settlement.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+
+                    <td className="py-3 px-4 text-right font-medium text-slate-800">
+                      ₹{r.actual_bank_credit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </td>
+
+                    <td className="py-3 px-4 text-right font-bold">
+                      {r.variance === 0 ? (
+                        <span className="text-emerald-600">₹0.00</span>
+                      ) : (
+                        <span className="text-red-600 font-mono">
+                          {r.variance > 0 ? `+₹${r.variance.toFixed(2)}` : `-₹${Math.abs(r.variance).toFixed(2)}`}
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="py-3 px-4">
+                      <span className="inline-block rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-700">
+                        {r.match_method}
                       </span>
+                    </td>
+
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center space-x-1 text-[11px] font-semibold ${
+                        isVerified ? 'text-emerald-700' : 'text-red-600'
+                      }`}>
+                        {isVerified ? (
+                          <>
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 mr-1" />
+                            VERIFIED
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="h-3.5 w-3.5 text-red-600 mr-1" />
+                            REJECTED
+                          </>
+                        )}
+                      </span>
+                    </td>
+
+                    <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      {isException ? (
+                        <button
+                          onClick={() => handleAction(r.transaction_id, r.recommended_action || 'DISPUTE_RAZORPAY')}
+                          className="rounded bg-red-600 px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-red-700 transition-colors"
+                        >
+                          {r.recommended_action || 'Resolve'}
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-slate-400">—</span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -321,211 +278,178 @@ export const ReconciliationCenter: React.FC = () => {
         </div>
       </div>
 
-      {/* Premium Right-Side Transaction Audit Drawer */}
+      {/* Reconciliation Detail Drawer Modal */}
       {selectedRecord && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/30 backdrop-blur-xs">
-          <div className="h-full w-full max-w-lg bg-white p-6 shadow-2xl border-l border-slate-200 overflow-y-auto space-y-6 animate-fadeIn">
+        <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-xs flex justify-end animate-fadeIn">
+          <div className="w-full max-w-xl bg-white shadow-2xl h-full flex flex-col justify-between overflow-y-auto">
             {/* Drawer Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-slate-400 font-medium">AI Transaction Auditor</span>
-                  {auditResult && (
-                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                      auditResult.reconciliationStatus === 'MATCHED'
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : auditResult.reconciliationStatus === 'PENDING'
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'bg-red-50 text-red-700'
-                    }`}>
-                      {auditResult.reconciliationStatus}
-                    </span>
-                  )}
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  Reconciliation Audit Record
                 </div>
-                <div className="font-mono text-base font-bold text-slate-900 mt-0.5">
-                  {selectedRecord.transactionId}
+                <div className="text-base font-bold text-slate-900 font-mono mt-0.5">
+                  {selectedRecord.transaction_id}
                 </div>
               </div>
+
               <button
-                onClick={() => {
-                  setSelectedRecord(null);
-                  setAuditResult(null);
-                }}
-                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                onClick={() => setSelectedRecord(null)}
+                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Action Feedback Banner */}
-            {actionSuccessMessage && (
-              <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2.5 text-xs text-emerald-800 font-medium flex items-center space-x-1.5 animate-fadeIn">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                <span>{actionSuccessMessage}</span>
-              </div>
-            )}
-
-            {/* 1. FINANCIAL WATERFALL CALCULATION */}
-            {auditResult && (
-              <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-xs">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <div className="font-semibold text-xs text-slate-900 flex items-center space-x-1.5">
-                    <Scale className="h-3.5 w-3.5 text-[#0c66e4]" />
-                    <span>Deterministic Financial Waterfall</span>
-                  </div>
-                  <span className="text-[10px] font-mono text-slate-400">Statutory GST 18%</span>
+            {/* Drawer Content */}
+            <div className="p-6 space-y-6 flex-1">
+              {/* 3-Way Reconciliation Visual Progression */}
+              <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+                <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Three-Way Ingestion Lineage
                 </div>
-
-                <div className="space-y-1.5 text-xs font-mono">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Gross Transaction Amount:</span>
-                    <span className="font-bold text-slate-900">₹{auditResult.waterfall.grossAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="p-2.5 rounded bg-blue-50 border border-blue-100">
+                    <div className="text-[10px] font-semibold text-blue-700 uppercase">1. Razorpay</div>
+                    <div className="font-semibold text-slate-900 mt-1">₹{selectedRecord.gross_amount.toLocaleString()}</div>
+                    <div className="text-[10px] text-slate-500 font-mono">Order: {selectedRecord.order_id}</div>
                   </div>
 
-                  <div className="flex justify-between text-slate-500 pl-2 border-l border-slate-200">
-                    <span>- Contracted MDR (2.00%):</span>
-                    <span>-₹{auditResult.waterfall.mdrAmount.toFixed(2)}</span>
+                  <div className="p-2.5 rounded bg-indigo-50 border border-indigo-100">
+                    <div className="text-[10px] font-semibold text-indigo-700 uppercase">2. Bank Credit</div>
+                    <div className="font-semibold text-slate-900 mt-1">₹{selectedRecord.actual_bank_credit.toLocaleString()}</div>
+                    <div className="text-[10px] text-slate-500 font-mono">UTR: {selectedRecord.utr}</div>
                   </div>
 
-                  <div className="flex justify-between text-slate-500 pl-2 border-l border-slate-200">
-                    <span>- Statutory GST on MDR (18%):</span>
-                    <span>-₹{auditResult.waterfall.gstOnMdr.toFixed(2)}</span>
+                  <div className="p-2.5 rounded bg-slate-100 border border-slate-200">
+                    <div className="text-[10px] font-semibold text-slate-700 uppercase">3. Merchant Ledger</div>
+                    <div className="font-semibold text-slate-900 mt-1">₹{selectedRecord.expected_settlement.toLocaleString()}</div>
+                    <div className="text-[10px] text-slate-500 font-mono">Inv: {selectedRecord.invoice_id}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Strict Decimal Arithmetic Waterfall */}
+              {selectedRecord.waterfall && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-2.5">
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center justify-between">
+                    <span>10-Step Deterministic Calculation</span>
+                    <span className="text-[10px] font-mono text-slate-400">Decimal (Paise-Accurate)</span>
                   </div>
 
-                  {auditResult.waterfall.tdsAmount > 0 && (
-                    <div className="flex justify-between text-slate-500 pl-2 border-l border-slate-200">
-                      <span>- TDS (Section 194-O):</span>
-                      <span>-₹{auditResult.waterfall.tdsAmount.toFixed(2)}</span>
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex justify-between text-slate-700">
+                      <span>Gross Capture:</span>
+                      <span className="font-semibold">₹{selectedRecord.waterfall.gross_amount.toFixed(2)}</span>
                     </div>
-                  )}
-
-                  <div className="flex justify-between border-t border-slate-200 pt-1.5 font-bold text-slate-800">
-                    <span>= Theoretical Net Settlement:</span>
-                    <span>₹{auditResult.waterfall.theoreticalNetSettlement.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                  </div>
-
-                  <div className="flex justify-between text-slate-700">
-                    <span>Actual Bank Credit (Settled):</span>
-                    <span className="font-semibold">₹{auditResult.waterfall.actualNetSettled.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                  </div>
-
-                  <div className={`flex justify-between border-t-2 border-dashed pt-1.5 font-bold text-sm ${
-                    auditResult.varianceAmount > 0 ? 'border-red-200 text-red-700' : 'border-emerald-200 text-emerald-700'
-                  }`}>
-                    <span>Variance Difference:</span>
-                    <span>{auditResult.varianceAmount > 0 ? `-₹${auditResult.varianceAmount.toFixed(2)}` : '₹0.00 (Zero Variance)'}</span>
+                    <div className="flex justify-between text-red-600">
+                      <span>Contracted MDR (2.0%):</span>
+                      <span>-₹{selectedRecord.waterfall.mdr_amount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-red-600">
+                      <span>Statutory GST on MDR (18%):</span>
+                      <span>-₹{selectedRecord.waterfall.gst_amount.toFixed(2)}</span>
+                    </div>
+                    {selectedRecord.refund > 0 && (
+                      <div className="flex justify-between text-red-600">
+                        <span>Customer Refund:</span>
+                        <span>-₹{selectedRecord.refund.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {selectedRecord.chargeback > 0 && (
+                      <div className="flex justify-between text-red-600">
+                        <span>Chargeback Reserve:</span>
+                        <span>-₹{selectedRecord.chargeback.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-slate-900 pt-2 border-t border-slate-200">
+                      <span>Theoretical Net Settlement:</span>
+                      <span>₹{selectedRecord.waterfall.theoretical_net_settlement.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-800">
+                      <span>Actual Bank Payout:</span>
+                      <span className="font-semibold">₹{selectedRecord.actual_bank_credit.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-base pt-1">
+                      <span>Discrepancy Variance:</span>
+                      <span className={selectedRecord.variance === 0 ? 'text-emerald-600' : 'text-red-600'}>
+                        ₹{selectedRecord.variance.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* 2. AI ROOT-CAUSE AUDIT FINDING PANEL */}
-            {auditResult && (
-              <div className={`rounded-xl border p-4 space-y-3 ${
-                auditResult.reconciliationStatus === 'MATCHED'
-                  ? 'border-emerald-200 bg-emerald-50/40'
-                  : 'border-red-200 bg-red-50/40'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">AI Audit Finding</span>
-                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-700 border border-slate-200 shadow-2xs">
-                    {auditResult.confidenceScore}% Confidence
-                  </span>
-                </div>
-
-                <div>
-                  <div className="text-sm font-bold text-slate-900">
-                    {auditResult.rootCause}
+              {/* AI Proposal Card (if applicable) */}
+              {selectedRecord.ai_proposal && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4 space-y-2">
+                  <div className="flex items-center space-x-2 text-xs font-bold text-amber-900">
+                    <Sparkles className="h-4 w-4 text-amber-600" />
+                    <span>AI Residual Proposal (Unapproved)</span>
                   </div>
-                  <p className="mt-1 text-xs text-slate-600 leading-relaxed">
-                    {auditResult.whyFlagged}
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    {selectedRecord.ai_proposal.reasoning}
                   </p>
+                  <div className="text-[11px] text-slate-500">
+                    Confidence: {(selectedRecord.ai_proposal.confidence * 100).toFixed(0)}% · Action: {selectedRecord.ai_proposal.suggestedAction}
+                  </div>
                 </div>
+              )}
 
-                {auditResult.evidence.length > 0 && (
-                  <div className="rounded-lg bg-white p-2.5 border border-slate-200 space-y-1 text-[11px]">
-                    <div className="font-semibold text-slate-700">Supporting Evidence:</div>
-                    {auditResult.evidence.map((ev, i) => (
-                      <div key={i} className="text-slate-600">• {ev}</div>
+              {/* Verifier Proof Results */}
+              {selectedRecord.verification_result && (
+                <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-2">
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Deterministic Verification Checks
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    {selectedRecord.verification_result.checksPassed.map((c, i) => (
+                      <div key={i} className="text-emerald-700 flex items-center space-x-1.5">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <span>{c}</span>
+                      </div>
                     ))}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
-                  <span className="text-[11px] text-slate-500">Recommended Action:</span>
-                  <span className="rounded bg-slate-900 px-2 py-0.5 font-mono text-[10px] font-bold text-white">
-                    {auditResult.recommendedAction}
-                  </span>
-                </div>
-
-                {/* 1-Click Operations Action Buttons */}
-                {auditResult.reconciliationStatus !== 'MATCHED' && (
-                  <div className="grid grid-cols-2 gap-2 pt-2">
-                    <button
-                      onClick={() => executeAuditorAction('Raised Gateway Dispute with Razorpay')}
-                      className="rounded-md bg-[#0c66e4] py-2 text-xs font-semibold text-white hover:bg-[#0052cc] transition-colors"
-                    >
-                      Create Dispute
-                    </button>
-                    <button
-                      onClick={() => executeAuditorAction('Quarantined record for manual ops review')}
-                      className="rounded-md border border-slate-300 bg-white py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
-                    >
-                      Quarantine
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 3. TRANSPARENT 10-STEP AUDIT TRAIL */}
-            {auditResult && (
-              <div className="space-y-3">
-                <button
-                  onClick={() => setShowAuditTrail(!showAuditTrail)}
-                  className="flex w-full items-center justify-between font-semibold text-xs text-slate-900 border-b border-slate-100 pb-2"
-                >
-                  <span className="flex items-center space-x-1.5">
-                    <Layers className="h-3.5 w-3.5 text-slate-500" />
-                    <span>Transparent 10-Step Audit Trail</span>
-                  </span>
-                  {showAuditTrail ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
-                </button>
-
-                {showAuditTrail && (
-                  <div className="space-y-2 pl-2 border-l-2 border-slate-200 text-xs">
-                    {auditResult.auditSteps.map((step) => (
-                      <div key={step.stepNumber} className="pl-3 relative group">
-                        <div className={`absolute -left-[19px] top-0.5 h-2.5 w-2.5 rounded-full border-2 bg-white ${
-                          step.status === 'FLAGGED' ? 'border-red-600 bg-red-50' : 'border-emerald-600'
-                        }`} />
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-slate-900">
-                            {step.stepNumber}. {step.title}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            {new Date(step.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-600 mt-0.5">
-                          {step.description}
-                        </div>
+                    {selectedRecord.verification_result.checksFailed.map((c, i) => (
+                      <div key={i} className="text-red-700 flex items-center space-x-1.5">
+                        <AlertTriangle className="h-3.5 w-3.5 text-red-600 shrink-0" />
+                        <span>{c}</span>
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
 
-            <button
-              onClick={() => {
-                setSelectedRecord(null);
-                setAuditResult(null);
-              }}
-              className="w-full rounded-md bg-slate-900 py-2.5 text-xs font-medium text-white hover:bg-slate-800"
-            >
-              Done
-            </button>
+            {/* Drawer Footer Actions */}
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500">
+                Rule: {selectedRecord.match_method}
+              </span>
+
+              {selectedRecord.current_status === 'EXCEPTION' && (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => {
+                      handleAction(selectedRecord.transaction_id, 'QUARANTINE');
+                      setSelectedRecord(null);
+                    }}
+                    className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Quarantine
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleAction(selectedRecord.transaction_id, selectedRecord.recommended_action || 'DISPUTE_RAZORPAY');
+                      setSelectedRecord(null);
+                    }}
+                    className="rounded bg-[#0c66e4] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#0052cc]"
+                  >
+                    {selectedRecord.recommended_action || 'Create Dispute'}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

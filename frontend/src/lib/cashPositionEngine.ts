@@ -1,77 +1,64 @@
-import { CashPosition, CashForecastDay, SettlementRecord, FinancialRecord } from '../types';
+import { SettlementRecord, FinancialException, CashPosition, CashForecastDay } from '../types';
 
-export function calculateCashPosition(
-  baseAvailableCash: number = 246500,
+export function calculateLiveCashPosition(
+  baseAvailableCash: number,
   settlements: SettlementRecord[],
-  records: FinancialRecord[]
-): { currentPosition: CashPosition; forecast: CashForecastDay[] } {
-  // Pending inflows from gateway
-  const expectedSettlementsInflow = settlements
-    .filter(s => s.status === 'pending')
-    .reduce((sum, s) => sum + s.netSettlementExpected, 0);
+  exceptions: FinancialException[]
+): CashPosition {
+  const pendingInflows = settlements
+    .filter(s => s.status === 'PENDING' || s.status === 'pending')
+    .reduce((sum, s) => sum + (s.netSettlementAmount || s.netSettlementExpected || 0), 0);
 
-  // Pending gateway holdbacks (discrepancy amounts under dispute)
-  const pendingGatewayHoldbacks = settlements
-    .filter(s => s.status === 'discrepancy')
-    .reduce((sum, s) => sum + Math.abs(s.difference), 0);
+  const holdbacks = settlements
+    .filter(s => s.status === 'DISCREPANCY' || s.status === 'discrepancy')
+    .reduce((sum, s) => sum + Math.abs(s.varianceAmount || s.difference || 0), 0);
 
-  // Refund obligations (estimated 1.5% of gross volume buffer)
-  const refundObligations = 12500;
+  const refundObligations = exceptions
+    .filter(e => e.discrepancyType === 'DUPLICATE_TRANSACTION' || e.type === 'DUPLICATE_TRANSACTION')
+    .reduce((sum, e) => sum + (e.actualAmount || 0), 0);
 
-  const projectedNetPosition = baseAvailableCash + expectedSettlementsInflow - refundObligations;
+  const projectedNet = baseAvailableCash + pendingInflows - holdbacks - refundObligations;
 
-  const currentPosition: CashPosition = {
+  return {
     currentAvailableCash: baseAvailableCash,
-    expectedSettlementsInflow: Math.round(expectedSettlementsInflow * 100) / 100,
-    pendingGatewayHoldbacks: Math.round(pendingGatewayHoldbacks * 100) / 100,
-    refundObligations,
-    projectedNetPosition: Math.round(projectedNetPosition * 100) / 100,
+    expectedSettlementsInflow: pendingInflows,
+    pendingGatewayHoldbacks: holdbacks,
+    refundObligations: refundObligations,
+    projectedNetPosition: projectedNet,
     lastUpdated: new Date().toISOString()
   };
+}
 
-  // Generate 7-day forward forecast
-  const forecast: CashForecastDay[] = [];
-  const days = ['Today', 'Tomorrow', '+2 Days', '+3 Days', '+4 Days', '+5 Days', '+6 Days'];
-  let rollingBalance = baseAvailableCash;
+export function generate7DayForecast(currentCash: number): CashForecastDay[] {
+  const days: CashForecastDay[] = [];
+  const today = new Date();
+  let balance = currentCash;
 
-  const dailyInflows = [
-    expectedSettlementsInflow * 0.7, // Day 0/1: T+1 payout
-    expectedSettlementsInflow * 0.3 + 45000,
-    52000,
-    61000,
-    48000,
-    73000,
-    68000
+  const mockPlan = [
+    { label: 'Today', inflow: 342000, outflow: 45000, conf: 0.98 },
+    { label: 'Tomorrow', inflow: 285000, outflow: 80000, conf: 0.95 },
+    { label: 'Day +2', inflow: 310000, outflow: 30000, conf: 0.92 },
+    { label: 'Day +3', inflow: 240000, outflow: 120000, conf: 0.88 },
+    { label: 'Day +4', inflow: 195000, outflow: 25000, conf: 0.85 },
+    { label: 'Day +5', inflow: 220000, outflow: 40000, conf: 0.82 },
+    { label: 'Day +6', inflow: 260000, outflow: 60000, conf: 0.80 }
   ];
 
-  const dailyOutflows = [
-    2500, // Today refunds / operating expenses
-    18000, // Supplier invoice
-    12000,
-    8000,
-    14000,
-    9500,
-    11000
-  ];
+  for (let i = 0; i < mockPlan.length; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const plan = mockPlan[i];
+    balance = balance + plan.inflow - plan.outflow;
 
-  for (let i = 0; i < 7; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    const dateStr = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-    
-    const inflow = dailyInflows[i];
-    const outflow = dailyOutflows[i];
-    rollingBalance = rollingBalance + inflow - outflow;
-
-    forecast.push({
-      date: dateStr,
-      dayLabel: days[i],
-      projectedInflow: Math.round(inflow),
-      projectedOutflow: Math.round(outflow),
-      projectedClosingBalance: Math.round(rollingBalance),
-      confidenceScore: Math.max(78, 98 - i * 3) // Confidence decreases slightly further out
+    days.push({
+      date: d.toISOString().slice(0, 10),
+      dayLabel: plan.label,
+      projectedInflow: plan.inflow,
+      projectedOutflow: plan.outflow,
+      projectedClosingBalance: balance,
+      confidenceScore: plan.conf
     });
   }
 
-  return { currentPosition, forecast };
+  return days;
 }
