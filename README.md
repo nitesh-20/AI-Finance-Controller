@@ -1,233 +1,553 @@
-<div align="center">
+# AI Finance Controller
 
-# Vaani.AI
-### *An AI-powered, voice-native business intelligence assistant that transforms payment events into real-time operational insights for merchants.*
+### AI-powered finance operations, reconciliation & settlement intelligence.
 
-[![React](https://img.shields.io/badge/React-19.0-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Google Gemini](https://img.shields.io/badge/Google_Gemini-2.5_Flash_Live-8E75B2?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
-[![Vite](https://img.shields.io/badge/Vite-6.2-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.1-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![Vercel](https://img.shields.io/badge/Vercel-Deployed-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vaani-ai-navy.vercel.app)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-
-[Live Application](https://vaani-ai-navy.vercel.app) • [Architecture](#system-architecture) • [Engineering Decisions](#engineering-decisions) • [Installation](#installation--setup)
-
-</div>
+AI Finance Controller is an AI-powered finance operations platform that helps merchants reconcile payment and settlement records, detect financial discrepancies, understand settlement variances, monitor cash position, and interact with financial data through Vaani, a voice-enabled finance copilot.
 
 ---
 
-## Overview & Vision
+## Razorpay AI Buildathon — Track 04
 
-Traditional payment soundboxes operate as passive, event-driven hardware devices. They execute a single pre-programmed function: broadcasting an audio output upon receiving a payment confirmation payload (e.g., *"₹50 received on Paytm"*). They lack contextual awareness, state tracking, and query resolution capability.
+**Challenge Track:** *AI Finance Controller — "Run the books and the cash position"*
 
-**Vaani.AI** introduces an LLM-powered reasoning layer over merchant financial and operational data. Built on top of Google Gemini 2.5 Flash's Native Audio Multimodal Live API, Vaani.AI converts transaction streams into an interactive operational database. Merchants can execute complex financial queries, verify payment disputes, monitor inventory levels, and receive structured PDF statements using real-time, low-latency Hinglish voice interactions.
+In high-velocity commerce environments, finance and accounting teams struggle with the manual friction of multi-source ledger reconciliation, unitemized gateway fees, chargeback deductions, and delayed bank payout cycles. 
 
----
+This project directly addresses Track 04 by implementing an autonomous, end-to-end finance operations system across a batch of 50+ realistic Indian merchant transactions. It executes deterministic arithmetic reconciliation, measures match throughput, detects discrepancies, explains root causes with supporting evidence, projects a 7-day forward liquidity runway, and exposes an auditable copilot interface for operational review.
 
-## Why AI?
-
-### 1. Limitations of Rule-Based & Keyword Systems
-Rule-based intent parsers fail in real-world retail environments due to the high variance in Indian code-mixed speech (Hinglish), variable phrasing (*"aaj kitna dhandha hua"*, *"paisa aaya kya"*, *"kal ka scene batao"*), and implicit temporal queries. Deterministic Regex patterns cannot infer context or extract multi-parameter entities across unstructured voice inputs.
-
-### 2. Requirement for LLM Reasoning
-An LLM is necessary to maintain multi-turn conversational state, synthesize aggregated financial metrics on the fly, and perform cross-domain correlation between incoming payment events and Kirana store stock levels.
-
-### 3. Voice-Native Interface Rationale
-Small retail merchants operate in high-throughput physical environments where operating software dashboards on screens is inefficient. A voice-native interface allows zero-touch, hands-free query execution alongside ongoing physical transactions.
-
-### 4. Gemini Multimodal Live API Integration
-By utilizing native speech-to-speech processing, Vaani.AI avoids the latency penalty of cascading traditional Automatic Speech Recognition (ASR), Text Processing, and Text-to-Speech (TTS) models. Audio frames pass directly over a persistent WebSocket connection, yielding sub-500ms voice-to-voice latencies.
+> **Test Mode Notice:** This prototype is designed for the Razorpay Buildathon. It executes against a deterministic synthetic dataset simulating Indian merchant gateway manifests, MDR fees, and bank credits. It does not connect to live production Razorpay banking infrastructure.
 
 ---
 
-## Core Capabilities
+## The Problem
 
-Vaani.AI implements the following production capabilities:
+Finance teams must continuously compare merchant order manifests, gateway captures, settlement payout batches, contracted Merchant Discount Rates (MDR), Goods & Services Tax (GST), Tax Deducted at Source (TDS), and statutory bank credits.
 
-- **Real-Time Multimodal Voice Conversations**: Full-duplex speech-to-speech interaction via persistent WebSocket audio streaming.
-- **Intent Understanding & Classification**: Dynamically parses intent across casual, multi-lingual, and code-mixed phrasing.
-- **Context-Aware Reasoning**: Evaluates financial metrics, recent transactions, and inventory depletion states within the conversational window.
-- **Code-Mixed Hinglish Comprehension**: Processed natively to match natural Indian retail dialogue without requiring manual translation layers.
-- **Financial Summarization**: Computes gross earnings, net available balance, and category-wise spending on request.
-- **Inventory State Intelligence**: Correlates payment receipts with stock items to flag low-stock thresholds and suggest reorder lists.
-- **Structured Report Generation**: Dynamically formats and triggers client-side PDF statements containing tabular transaction records.
+Manual reconciliation is:
+* **Time-consuming**: Sifting through thousands of line items across fragmented CSVs and gateway dashboards.
+* **Error-prone**: Subtle decimal rounding errors and fee tier variations slip past manual inspection.
+* **Difficult to audit**: Decisions to adjust or dispute lack structured, timestamped evidence trails.
+* **Hard to scale**: Volume spikes lead to growing backlogs of unverified transactions.
+
+The critical requirement is not just flagging that a mismatch exists, but answering:
+1. **Why is there a mismatch?** (Root-cause classification)
+2. **How much money is affected?** (Exact variance waterfall)
+3. **What evidence supports the finding?** (Gateway traces and contractual comparisons)
+4. **What action should be taken next?** (Dispute, Quarantine, or Journal Adjustment)
 
 ---
 
-## System Architecture
+## The Solution
 
-```mermaid
-flowchart TD
-    subgraph Client ["Client Architecture (React 19 + Web Audio API)"]
-        Mic["Microphone Input (16kHz PCM)"]
-        AudioWorklet["AudioWorkletProcessor (Off-Thread PCM Chunking)"]
-        UI["React 19 UI / Central Voice Controller"]
-        Speaker["Audio Context Destination (24kHz Zephyr PCM)"]
-    end
+AI Finance Controller operates as a deterministic finance operations control layer that strictly decouples **authoritative Python arithmetic** from **AI reasoning and natural language explanation**.
 
-    subgraph Transport ["Full-Duplex Transport"]
-        WS["WebSocket Pipeline (Base64 PCM Packets)"]
-    end
-
-    subgraph AI Engine ["Gemini Multimodal Engine"]
-        GeminiLive["Google Gemini 2.5 Flash Native Audio API"]
-        PromptEngine["System Instruction & State Injection Layer"]
-    end
-
-    subgraph Business Logic ["Operational Data Engine"]
-        TxEngine["Transaction & Financial Metric Aggregator"]
-        InvEngine["Kirana Inventory State Manager"]
-        PDFEngine["Client-Side PDF Generator (jsPDF)"]
-    end
-
-    Mic --> AudioWorklet
-    AudioWorklet -- "2048-Sample PCM Packets (~128ms)" --> WS
-    WS <--> GeminiLive
-    GeminiLive <--> PromptEngine
-    PromptEngine <--> TxEngine
-    PromptEngine <--> InvEngine
-    GeminiLive -- "Native Audio Output Chunks" --> Speaker
-    PromptEngine -- "Report Generation Command" --> PDFEngine
-    PDFEngine --> UI
+```text
+Transaction Manifests & Gateway Batches
+                  │
+                  ▼
+         Data Normalization
+                  │
+                  ▼
+   Deterministic Python Reconciliation Engine
+                  │
+                  ▼
+         Settlement Verification
+                  │
+                  ▼
+         Variance Detection
+                  │
+                  ▼
+       AI Root-Cause Diagnostics
+                  │
+                  ▼
+         Recommended Actions
+                  │
+                  ▼
+       Immutable Audit Trail
+                  │
+                  ▼
+   Fintech Dashboard & Vaani Voice Copilot
 ```
 
 ---
 
-## AI Pipeline & Interaction Flow
+## Key Features
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Merchant as Merchant / User
-    participant Worklet as AudioWorklet Processor
-    participant WS as WebSocket Gateway
-    participant Gemini as Gemini 2.5 Flash Live API
-    participant Data as Data Engine & Context
+### 1. AI Reconciliation Engine
+Processes 50+ financial records and automatically calculates:
+* **Processed Records**: 52 total merchant transactions
+* **Clean Matches**: 37 verified records
+* **Pending Inflow**: 10 records in T+1 settlement cycle
+* **Isolated Exceptions**: 5 anomaly records
+* **Match Rate**: 71.2% deterministic match throughput
+* **Gross & Net Volumes**: Aggregate monetary volume and fee breakdowns
 
-    Merchant->>Worklet: Captures Speech Input (16kHz PCM)
-    Worklet->>WS: Sends Base64 Encoded PCM Chunks (~128ms intervals)
-    WS->>Gemini: Realtime Audio Stream Input
-    Gemini->>Data: Evaluates Pre-Injected Inventory & Financial State
-    Data-->>Gemini: Returns Aggregated Metrics / Transaction Context
-    Gemini-->>WS: Streams Model Turn Audio Chunks (Zephyr Voice)
-    WS-->>Merchant: Plays Audio Output (<500ms total latency)
-    
-    opt Interruption Triggered
-        Merchant->>Worklet: User Speaks During Model Output
-        Gemini-->>WS: Transmits serverContent.interrupted Signal
-        WS->>App: Flushes Audio Queue (`audioQueueRef.current = []`)
-    end
+### 2. AI Transaction Auditor & Waterfall
+Provides granular, line-item financial auditing for any transaction:
+* Calculates theoretical settlement using contracted MDR and 18% GST.
+* Compares expected payout against actual bank credit.
+* Isolates variance down to exact paise.
+* Generates evidence trails and confidence-rated root-cause diagnoses.
+
+### 3. Settlement Intelligence
+Monitors gateway payout batches and statutory tax deductions:
+* Gross settlement volume vs net bank credits (e.g. HDFC Bank `•••• 4892`).
+* Itemized 2.0% MDR fee deductions and 18% GST on MDR.
+* Real-time payout batch status and bank Unique Transaction References (UTRs).
+* Automatic detection of settlement fee variances and chargeback holdbacks.
+
+### 4. Exception Center
+Centralized operations queue to inspect, dispute, and resolve anomalies:
+* Filter by severity: `Critical`, `High`, `Medium`, `Low`, `Unresolved`, `Resolved`.
+* Sort by `Variance Amount`, `Severity`, `Confidence Score`, and `Detected Date`.
+* Side-by-side evidence drawer comparing merchant orders against gateway transfers.
+
+### 5. Cash Position & 7-Day Liquidity Forecast
+Calculates real-time merchant liquidity:
+* **Available Cash**: ₹2.46L current liquid capital.
+* **Pending Settlement Inflow**: ₹57.4K in T+1 pipeline.
+* **Refund Liability Buffer**: ₹12.5K reserve obligation.
+* **7-Day Rolling Cash Runway**: Daily forward closing balance projection with confidence ratings.
+
+### 6. Vaani — Finance Copilot
+Autonomous voice and chat copilot operating with sub-2ms backend response times:
+* Speaks in natural Hindi/English (Hinglish).
+* Answers finance questions using live data: *"Why was TXN_98217345 flagged?"*, *"Explain the settlement calculation for TXN_98217345"*, *"What is today's reconciliation rate?"*, *"What's our cash position?"*.
+* Emits transparent tool execution traces (e.g. `✓ audit_transaction (Diagnosed Unmapped Chargeback Reserve)`).
+
+### 7. Transparent 10-Step Audit Trail
+Every reconciliation decision is accompanied by a 10-step auditable event log:
+1. Transaction Received
+2. Payment Details Normalized
+3. Contracted MDR Loaded
+4. MDR Calculated
+5. Statutory GST Calculated
+6. TDS Evaluated
+7. Theoretical Settlement Calculated
+8. Actual Settlement Compared
+9. Variance Calculated
+10. Root Cause & Recommendation Generated
+
+### 8. Statutory Report Exports
+Client-side and server-side PDF generation for compliance audits:
+* Reconciliation Ledger Statements
+* Settlement Payout Summaries
+* Exception Audit Statements
+
+---
+
+## AI Transaction Auditor
+
+The system strictly enforces deterministic mathematical calculations in Python:
+
+$$\text{MDR Amount} = \text{Gross Amount} \times \text{Contracted MDR Rate (e.g. 2.0\%)}$$
+$$\text{GST on MDR} = \text{MDR Amount} \times 18\%$$
+$$\text{TDS} = \text{Gross Amount} \times \text{TDS Rate (Section 194-O, if applicable)}$$
+$$\text{Theoretical Net Settlement} = \text{Gross Amount} - \text{MDR Amount} - \text{GST on MDR} - \text{TDS}$$
+$$\text{Variance} = \text{Theoretical Net Settlement} - \text{Actual Net Settled}$$
+
+### Calculation Example:
+
+| Step | Component | Rate / Formula | Amount (₹) |
+| :--- | :--- | :--- | :--- |
+| 1 | **Gross Amount** | Captured transaction value | **₹20,000.00** |
+| 2 | **Contracted MDR** | $2.00\%$ of ₹20,000.00 | **-₹400.00** |
+| 3 | **Statutory GST** | $18.00\%$ of ₹400.00 | **-₹72.00** |
+| 4 | **TDS (194-O)** | $0.00\%$ (Exempt / Threshold) | **-₹0.00** |
+| 5 | **Theoretical Net Settlement** | $20,000 - 400 - 72$ | **₹19,528.00** |
+| 6 | **Actual Bank Credit** | Gateway payout received | **₹19,128.00** |
+| 7 | **Variance Difference** | $19,528.00 - 19,128.00$ | **₹400.00 (Flagged)** |
+
+The AI layer interprets this calculation, correlates the ₹400 variance against batch deductions, assigns **95% confidence**, diagnoses an `Unmapped Chargeback Reserve`, and recommends `DISPUTE_RAZORPAY`.
+
+---
+
+## AI Agent Architecture
+
+```text
+                        ┌─────────────────────────────────────┐
+                        │       FinanceControllerAgent        │
+                        │ (Intent Routing · Tool Calling)     │
+                        └──────────────────┬──────────────────┘
+                                           │
+         ┌─────────────────────────────────┼─────────────────────────────────┐
+         ▼                                 ▼                                 ▼
+┌──────────────────┐             ┌──────────────────┐             ┌──────────────────┐
+│  Reconciliation  │             │ Settlement Audit │             │  Cash Forecast   │
+│      Agent       │             │      Agent       │             │      Agent       │
+└────────┬─────────┘             └────────┬─────────┘             └────────┬─────────┘
+         │                                │                                │
+         └────────────────────────────────┼────────────────────────────────┘
+                                           │
+                                  ┌────────▼────────┐
+                                  │  Finance Tools  │
+                                  └────────┬────────┘
+                                           │
+                 ┌─────────────────────────┼─────────────────────────┐
+                 ▼                         ▼                         ▼
+        ┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+        │  Transactions   │       │   Settlements   │       │     Ledger      │
+        └────────┬────────┘       └────────┬────────┘       └────────┬────────┘
+                 │                         │                         │
+                 └─────────────────────────┼─────────────────────────┘
+                                           │
+                        ┌──────────────────▼──────────────────┐
+                        │   Deterministic Python Engine       │
+                        │    (Waterfall & Variance Math)      │
+                        └──────────────────┬──────────────────┘
+                                           │
+                        ┌──────────────────▼──────────────────┐
+                        │     AI Root-Cause Diagnostics       │
+                        │ (Confidence · Evidence · Actions)   │
+                        └──────────────────┬──────────────────┘
+                                           │
+                        ┌──────────────────▼──────────────────┐
+                        │        Immutable Audit Ledger       │
+                        └─────────────────────────────────────┘
 ```
 
 ---
 
-## Engineering Decisions
+## AI vs Deterministic Logic
 
-| Architecture Component | Choice Made | Engineering Rationale |
+Financial workflows demand zero tolerance for hallucinated monetary numbers. The system establishes clear boundaries:
+
+| Layer | Technology | Primary Responsibilities |
 | :--- | :--- | :--- |
-| **AI Protocol** | **Gemini Live API (WebSocket)** | Enables streaming audio input and output over a single full-duplex TCP connection, eliminating HTTP request overhead. |
-| **Audio Pipeline** | **Native Speech-to-Speech** | Avoids cascade error accumulation and latency penalty (~2-3s) inherent in cascading STT → LLM → TTS pipelines. |
-| **Browser Audio Process** | **Web Audio API (`AudioWorklet`)** | Offloads Float32-to-Int16 PCM conversion to a dedicated Web Worker thread, preventing main-thread UI jank. |
-| **Context Ingestion** | **Pre-Injected System Instructions** | Injects real-time aggregated transaction and inventory arrays directly into the LLM system instructions, eliminating tool-call latency overhead during voice conversation. |
-| **Server Layer** | **Express.js Middleware** | Provides lightweight health endpoints (`/api/health`) and serves Vite production assets with minimal overhead. |
-| **Deployment** | **Vercel Serverless** | Deploys static SPA bundles to global CDN edge nodes with zero cold-start delay for client execution. |
-
----
-
-## Technical Challenges & Solutions
-
-### 1. Streaming Audio Buffer & WebSocket Overload
-- **Challenge**: Sending tiny PCM frames continuously overloaded the WebSocket connection, causing socket frames to drop.
-- **Solution**: Implemented a buffering queue inside `AudioWorkletProcessor.port.onmessage` that accumulates samples until reaching 2,048 samples (~128ms at 16kHz) before sending a base64 payload.
-
-### 2. Interruption Handling in Voice Conversations
-- **Challenge**: When the user interrupted the AI mid-response, previously queued audio chunks continued playing, leading to awkward voice overlap.
-- **Solution**: Listened for `message.serverContent.interrupted` payloads from the Gemini Live stream, instantly purging `audioQueueRef.current = []` and stopping active `AudioBufferSourceNode` playback.
-
-### 3. Precision vs. Latency in Financial Queries
-- **Challenge**: Executing external function calls (tool calls) to fetch balances introduced roundtrip delays during live speech.
-- **Solution**: Pre-calculated net available balances, total received/spent metrics, and low-stock items on state change and embedded them directly into the LLM's initial system prompt.
-
----
-
-## Features (Technical Specifications)
-
-- **Real-Time Speech-to-Speech Gateway**: Streamed 16kHz PCM mono audio input and 24kHz audio output over bidirectional WebSockets.
-- **State-Aware Intent Resolution**: Parses multi-parameter queries such as target merchant names, temporal windows, and payment amounts.
-- **Automated Soundbox Broadcasting**: Triggers instant audio announcements upon payment event ingestions.
-- **Inventory Depletion Tracking**: Cross-references transaction item arrays with inventory stock counters to trigger restock notifications.
-- **Client-Side Document Rendering**: Formats structured financial metrics into tabular PDF files using `jspdf` and `jspdf-autotable`.
+| **Deterministic Python Layer** | Python 3.14, Pydantic, Pandas | • Exact monetary arithmetic & decimal precision<br>• Match/mismatch validation rules<br>• Fee, GST, and TDS deductions<br>• Variance calculations & percentage aggregations<br>• State transitions & audit event logging |
+| **AI Intelligence Layer** | FinanceControllerAgent, Gemini Live / LLM | • Natural-language query parsing & intent detection<br>• Root-cause classification & evidence synthesis<br>• Action recommendation (`DISPUTE`, `QUARANTINE`)<br>• Multi-modal voice interaction via Vaani copilot<br>• Explainability summaries for finance operators |
 
 ---
 
 ## Tech Stack
 
-```
-Frontend:     React 19 | TypeScript 5.8 | Vite 6.2 | Tailwind CSS 4.1 | Framer Motion
-Backend:      Express.js (Node.js 22 Runtime) | Vite Development Middleware
-AI Core:      Google Gemini 2.5 Flash Native Audio API (@google/genai SDK)
-Audio:        Web Audio API | AudioWorkletProcessor (16kHz PCM In / 24kHz PCM Out)
-Deployment:   Vercel Edge Platform
-Utilities:    jsPDF | jsPDF-AutoTable | Lucide React
+### Frontend
+* **Core Framework**: React 19, TypeScript, Vite 6
+* **Styling**: Vanilla CSS, TailwindCSS v4
+* **Icons & UI**: Lucide React
+* **PDF Export**: jsPDF, jsPDF-AutoTable
+* **Audio Processing**: Web Audio API, AudioWorklet PCM Streamer
+
+### Backend
+* **Runtime**: Python 3.14
+* **Web Framework**: FastAPI (Async API routes, CORS middleware)
+* **Data Validation**: Pydantic v2 (Strict typing and schemas)
+* **Data Processing**: Pandas, NumPy
+* **Server**: Uvicorn ASGI
+
+### AI & Agent Layer
+* **Agent Architecture**: Tool-calling multi-agent orchestrator (`FinanceControllerAgent`)
+* **Live Audio Streaming**: Gemini Live API / Web Speech fallback
+* **Sidecar Engine**: LiveKit Agents 1.x, Deepgram Nova-2 STT, ElevenLabs Neural TTS
+
+### Testing
+* **Test Runner**: Pytest
+
+---
+
+## Project Structure
+
+```text
+ai-finance-controller/
+├── backend/                              # Python FastAPI Intelligence Backend
+│   ├── app/
+│   │   ├── main.py                       # FastAPI application entrypoint & routing
+│   │   ├── core/
+│   │   │   ├── config.py                 # Application settings & constants
+│   │   │   └── logging.py                # Structured logging configuration
+│   │   ├── models/
+│   │   │   ├── auditor.py                # Transaction auditor & waterfall schemas
+│   │   │   ├── transaction.py            # Transaction data models
+│   │   │   ├── settlement.py             # Settlement overview & batch models
+│   │   │   ├── reconciliation.py         # Batch result & metrics schemas
+│   │   │   ├── exception.py              # Financial exception & evidence models
+│   │   │   ├── finance.py                # Cash position & insight models
+│   │   │   └── agent.py                  # Agent chat traces & audit schemas
+│   │   ├── services/
+│   │   │   ├── transaction_auditor.py    # Deterministic waterfall & root cause engine
+│   │   │   ├── reconciliation_engine.py  # 10-step batch reconciliation engine
+│   │   │   ├── settlement_service.py     # Settlement payout & fee audit service
+│   │   │   ├── cash_forecast_service.py  # Cash runway & 7-day forecast service
+│   │   │   ├── exception_service.py      # Exception management & status updates
+│   │   │   ├── transaction_service.py    # Transaction ingestion & queries
+│   │   │   ├── audit_service.py          # Immutable audit event ledger
+│   │   │   └── report_service.py         # Statutory executive report generator
+│   │   ├── tools/                        # Agent-callable tools
+│   │   │   ├── reconciliation_tools.py
+│   │   │   ├── settlement_tools.py
+│   │   │   ├── forecasting_tools.py
+│   │   │   └── report_tools.py
+│   │   ├── agents/
+│   │   │   └── finance_controller.py     # Central orchestrator with reasoning traces
+│   │   ├── api/                          # REST API Routers
+│   │   │   ├── reconciliation.py         # /api/reconciliation
+│   │   │   ├── settlements.py            # /api/settlements
+│   │   │   ├── exceptions.py             # /api/exceptions
+│   │   │   ├── cash.py                   # /api/cash
+│   │   │   ├── insights.py               # /api/insights
+│   │   │   ├── agent.py                  # /api/agent/chat
+│   │   │   ├── reports.py                # /api/reports
+│   │   │   └── audit.py                  # /api/audit
+│   │   └── data/
+│   │       ├── synthetic_transactions.json # 52-record merchant dataset
+│   │       └── settlements.json          # Multi-day settlement batches
+│   ├── tests/
+│   │   └── test_reconciliation_auditor.py # Automated unit & integration tests
+│   └── requirements.txt
+│
+├── Vaani-AI/                             # React + Vite Production Frontend
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Navbar.tsx                # Corporate header with Ask Vaani trigger
+│   │   │   ├── Sidebar.tsx               # 4-tab primary navigation
+│   │   │   ├── FinanceDashboard.tsx      # Overview command center
+│   │   │   ├── ReconciliationCenter.tsx  # Reconciliation ledger & Audit Drawer
+│   │   │   ├── SettlementIntelligence.tsx# Payout batches & 7-day cash runway
+│   │   │   ├── ExceptionCenter.tsx       # Operations queue & evidence drawer
+│   │   │   └── VoiceAgent.tsx            # Vaani copilot modal with tool traces
+│   │   ├── context/
+│   │   │   └── FinanceContext.tsx        # Global state, backend sync & PDF export
+│   │   ├── services/
+│   │   │   ├── api.ts                    # FastAPI HTTP client with timeout guards
+│   │   │   └── gemini.ts                 # Live audio streaming service
+│   │   ├── data/                         # Local dataset mirror
+│   │   ├── types.ts                      # TypeScript interfaces
+│   │   ├── App.tsx                       # Main application shell
+│   │   └── index.css                     # Design tokens & typography
+│   ├── index.html
+│   ├── vite.config.ts
+│   └── package.json
+│
+├── orion_voiceagent-main/                # WebRTC Real-Time Voice Sidecar (LiveKit)
+│   ├── backend/                          # Python LiveKit agent
+│   ├── client/                           # WebRTC client interface
+│   └── README.md
+│
+├── .env.example                          # Root environment template
+└── README.md
 ```
 
 ---
 
-## Performance & Latency Metrics
+## Reconciliation Workflow
 
-- **Voice Roundtrip Latency**: <500ms end-to-end (Mic input to Speaker output).
-- **Audio Sample Processing**: 16kHz mono sampling rate, 2048-sample chunk size (~128ms window).
-- **Thread Isolation**: Main UI rendering unblocked via dedicated `AudioWorklet` worker thread.
-- **Client Bundle Build Time**: 3.52 seconds via Vite 6 module bundling.
+1. **Ingestion & Normalization**: Ingests merchant orders, gateway manifests, and bank payout statements.
+2. **Schema Validation**: Validates gross amounts, payment methods, transaction references, and timestamps.
+3. **MDR & GST Audit**: Applies contracted 2.00% MDR tier and statutory 18% GST.
+4. **TDS Evaluation**: Computes withholding tax where applicable (Section 194-O).
+5. **Waterfall Execution**: Generates the theoretical net settlement amount.
+6. **Bank Settlement Comparison**: Compares theoretical net payout against actual bank credit.
+7. **Variance Detection**: Surfaces discrepancies down to the exact paise.
+8. **Root-Cause Diagnostics**: Maps anomalies to predefined classification rules with confidence ratings.
+9. **Recommendation Generation**: Suggests operational actions (`DISPUTE_RAZORPAY`, `JOURNAL_ADJUSTMENT`, `QUARANTINE`).
+10. **Audit Ledger Persistence**: Writes timestamped calculation steps to the immutable audit log.
+11. **Dashboard & Copilot Update**: Updates the UI ledger and makes findings queryable via Vaani.
+
+---
+
+## Supported Root Causes
+
+The system implements 10 diagnostic classifications:
+
+| Classification | Signal / Condition | Default Action |
+| :--- | :--- | :--- |
+| `MATCHED` | Theoretical settlement matches bank credit ($\lvert\Delta\rvert \le \text{₹}0.05$) | `RECONCILE_CLEAN` |
+| `Wrong MDR Tier Applied` | Effective fee rate exceeds contracted 2.0% (e.g. 3.5% international card) | `JOURNAL_ADJUSTMENT` |
+| `GST / Rounding Error` | Fractional discrepancy ($0.05 < \lvert\Delta\rvert \le \text{₹}1.50$) due to tax rounding | `JOURNAL_ADJUSTMENT` |
+| `Unmapped Chargeback Reserve` | Unitemized ₹400 gateway deduction on settled batch | `DISPUTE_RAZORPAY` |
+| `Missing Settlement` | Merchant payment captured but bank payout batch omitted | `DISPUTE_RAZORPAY` |
+| `Duplicate Transaction` | Dual capture for the same order within a sub-minute window | `REFUND_DUPLICATE` |
+| `Currency Markup` | Cross-border FX markup deducted without separate line item | `JOURNAL_ADJUSTMENT` |
+| `Settlement Fee Variance` | Unexplained deduction on settlement batch transfer | `DISPUTE_RAZORPAY` |
+| `TDS Difference` | Withholding tax variance under Section 194-O | `JOURNAL_ADJUSTMENT` |
+| `Unknown / Requires Review` | Gateway capture with no corresponding merchant ERP order | `QUARANTINE` |
+
+---
+
+## Recommended Actions
+
+* **`DISPUTE_RAZORPAY`**: Recommended when gateway deductions or omitted payouts require raising a formal dispute with bank/gateway references (ARN / UTR).
+* **`JOURNAL_ADJUSTMENT`**: Recommended when differences (e.g. international card surcharges, GST rounding) represent legitimate accounting adjustments.
+* **`QUARANTINE`**: Recommended when payment manifests cannot be reconciled with internal orders, holding the transaction for manual fraud/ERP review.
+* **`REFUND_DUPLICATE`**: Recommended when dual captures occur, prompting an immediate customer refund to prevent chargebacks.
+* **`RECONCILE_CLEAN`**: Confirms that mathematical and reference audits verified clean settlement.
+
+---
+
+## Voice AI: Vaani — Finance Copilot
+
+Vaani acts as a conversational finance copilot integrated directly into the header navigation:
+
+* **Sub-2ms Backend Queries**: Queries the Python `FinanceControllerAgent` and returns deterministic answers without hallucinations.
+* **Visible Agent Traces**: Displays real-time tool execution logs (e.g. `✓ audit_transaction (Diagnosed ₹400 variance)`).
+* **Automated UI Navigation**: Voice commands automatically navigate the dashboard to the relevant tab and open detail drawers.
+
+### Example Queries Supported:
+* *"What is today's reconciliation rate?"* $\to$ Returns 71.2% match rate across 52 records.
+* *"Why was TXN_98217345 flagged?"* $\to$ Explains the ₹400 unitemized chargeback deduction.
+* *"Explain the settlement calculation for TXN_98217345"* $\to$ Breaks down the full mathematical waterfall.
+* *"Show my biggest settlement mismatch."* $\to$ Highlights the ₹18,063.40 missing payout.
+* *"What's our cash position?"* $\to$ Reports ₹2.46L available cash and ₹2.91L projected net liquidity.
+* *"Which transactions should be quarantined?"* $\to$ Identifies orphan gateway capture `TXN_GWAY_ORPHAN_99`.
+
+---
+
+## Reliability & Auditability
+
+1. **Deterministic Calculations**: No LLM generates or modifies financial figures. All arithmetic is executed in Python.
+2. **Strict Schema Validation**: All API responses and waterfall structures are validated by Pydantic models.
+3. **Evidence-Grounded Explanations**: AI reasoning references verified transaction metadata (ARNs, UTRs, order IDs, fee schedules).
+4. **Full Traceability**: Every transaction audit contains an immutable 10-step trail detailing each stage of the matching pipeline.
+
+---
+
+## Demo Flow
+
+1. **Overview Dashboard**: Observe aggregate metrics (₹3.26L processed, ₹2.46L available cash, 71.2% match rate).
+2. **Run Auto-Reconciliation**: Click **"Run Auto-Reconciliation"** on the Reconciliation page to trigger the 10-step matching pipeline.
+3. **Transaction Auditor**: Click any transaction row (e.g. `TXN_98217345`) to open the right-side detail drawer.
+4. **Financial Waterfall**: Inspect the Gross $\to$ MDR $\to$ GST $\to$ Net Settlement $\to$ Variance progression.
+5. **AI Audit Finding**: Review the diagnosed root cause (`Unmapped Chargeback Reserve`, 95% confidence) and click **"Create Dispute"**.
+6. **Exception Operations Queue**: Navigate to Exceptions, apply severity filters (`Critical`, `High`), and sort by `Variance`.
+7. **Settlements & Runway**: Inspect settlement batches, MDR fee deductions, and the interactive 7-day cash forecast.
+8. **Ask Vaani**: Click **"Ask Vaani"** in the header, click a prompt chip (*"₹400 ka difference kahan se aaya?"*), and observe the agent execution traces and voice response.
+9. **Export Report**: Click **"Export Report"** to generate a statutory audit PDF statement.
 
 ---
 
 ## Installation & Setup
 
-### Prerequisites
-- Node.js `v18.0.0` or higher
-- npm `v9.0.0` or higher
-- Gemini API Key from [Google AI Studio](https://aistudio.google.com/app/apikey)
-
-### 1. Clone Repository
+### 1. Clone the Repository
 ```bash
-git clone https://github.com/nitesh-20/Vaani-Ai-for-Paytm.git
-cd Vaani-Ai-for-Paytm/Vaani-AI
+git clone https://github.com/nitesh-20/AI-Finance-Controller.git
+cd AI-Finance-Controller
 ```
 
-### 2. Install Dependencies
+### 2. Python FastAPI Backend Setup
 ```bash
+cd backend
+
+# Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate       # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start backend server
+python3 -m uvicorn app.main:app --port 8000 --host 0.0.0.0 --reload
+```
+*Backend API documentation available at: `http://localhost:8000/docs`*
+
+### 3. React Frontend Setup
+```bash
+cd ../Vaani-AI
+
+# Install dependencies
 npm install
-```
 
-### 3. Configure Environment Variables
-Create a `.env` file in the project root:
-```env
-GEMINI_API_KEY="your_gemini_api_key_here"
-VITE_GEMINI_API_KEY="your_gemini_api_key_here"
-APP_URL="http://localhost:3000"
-```
-
-### 4. Run Development Server
-```bash
+# Start Vite development server
 npm run dev
 ```
-Navigate to `http://localhost:3000` and click the central voice controller.
+*Frontend application available at: `http://localhost:3000`*
 
 ---
 
-## Future AI Roadmap
+## Environment Variables
 
-- [ ] **Profit & Loss Analytics Engine**: Real-time margin computation using itemized cost structures.
-- [ ] **Automated Sales Forecasting**: Predictive stock depletion modeling based on historical transaction velocity.
-- [ ] **Multi-Outlet Aggregation**: Unified voice context across multi-branch retail operations.
-- [ ] **Voice Biometrics Verification**: Speaker identification for high-value merchant payout approvals.
-- [ ] **Autonomous Inventory Recommendations**: Automated purchase order generation for supplier fulfillment.
-- [ ] **Merchant Behavior Analytics**: Categorical spending anomaly detection and budget nudges.
+Copy the provided `.env.example` templates to configure environment variables:
+
+```bash
+# Root template
+cp .env.example .env
+
+# Backend template
+cp backend/.env.example backend/.env
+
+# Frontend template
+cp Vaani-AI/.env.example Vaani-AI/.env
+```
+
+### Required Variables:
+```env
+# Google Gemini API Key (Required for Live Voice Copilot)
+GEMINI_API_KEY=your_gemini_api_key_here
+VITE_GEMINI_API_KEY=your_gemini_api_key_here
+
+# Backend Ports
+PORT=8000
+HOST=0.0.0.0
+```
 
 ---
 
-## License
+## API Reference
 
-Distributed under the **MIT License**. See `LICENSE` for details.
+The FastAPI backend exposes the following structured REST endpoints under `/api`:
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/health` | Service health status and Buildathon metadata |
+| `GET` | `/api/reconciliation/run` | Executes 10-step batch reconciliation over 52 records |
+| `GET` | `/api/reconciliation/metrics` | Returns match rate, total processed, and variance totals |
+| `GET` | `/api/reconciliation/records` | Returns all processed records with classification tags |
+| `GET` | `/api/reconciliation/audit/{txn_id}` | Returns deterministic financial waterfall & 10-step audit trail |
+| `GET` | `/api/reconciliation/audits` | Returns audit results for all transactions in the batch |
+| `GET` | `/api/settlements` | Returns gross vs net settlements and fee deductions |
+| `GET` | `/api/settlements/batches` | Returns itemized settlement payout batches and UTRs |
+| `GET` | `/api/exceptions` | Returns all isolated financial exceptions |
+| `POST` | `/api/exceptions/{id}/status` | Updates exception status (`INVESTIGATING`, `RESOLVED`) |
+| `GET` | `/api/cash/position` | Returns liquid cash, pending inflows, and net liquidity |
+| `GET` | `/api/cash/forecast` | Returns 7-day daily forward cash runway projection |
+| `GET` | `/api/insights` | Returns data-grounded AI operational insights |
+| `POST` | `/api/agent/chat` | Central tool-calling agent chat endpoint with execution traces |
+| `GET` | `/api/reports/summary` | Returns executive statutory report dataset |
+| `GET` | `/api/audit` | Returns the immutable audit event ledger |
+
+---
+
+## Automated Testing
+
+The repository includes an automated unit testing suite powered by `pytest`:
+
+```bash
+cd backend
+source venv/bin/activate
+PYTHONPATH=.. pytest tests/test_reconciliation_auditor.py -v
+```
+
+### Test Coverage Includes:
+1. `test_perfect_match`: Verified ₹10,000 gross with 2% MDR + 18% GST $\to$ zero variance.
+2. `test_mdr_tier_discrepancy`: Verified ₹388.80 variance on international card rate.
+3. `test_unmapped_chargeback_reserve`: Verified ₹400 unitemized chargeback anomaly.
+4. `test_missing_settlement`: Verified ₹18,063.40 uncredited payout isolation.
+5. `test_duplicate_transaction`: Verified duplicate capture detection & `REFUND_DUPLICATE` action.
+6. `test_gst_rounding_difference`: Verified sub-rupee fractional tax precision.
+7. `test_edge_cases_zero_and_large_volume`: Zero-amount and ₹10,00,000 volume precision tests.
+8. `test_batch_reconciliation_integrity`: Verified 52-record batch match rate (**71.2%**).
+
+---
+
+## Security
+
+* **Credential Protection**: All API keys are loaded via environment variables; zero hardcoded secrets exist in the codebase.
+* **Input Validation**: All API inputs and JSON payloads are validated through Pydantic models.
+* **CORS & Separation**: Strict separation between presentation and backend calculation layers.
+
+---
+
+## Future Roadmap
+
+* **Direct Razorpay Webhook Integration**: Live webhook ingestion for payment, capture, refund, and settlement events.
+* **Direct Bank Feed Sync**: Automated MT940 / Open Banking API connectors for real-time bank statement ingestion.
+* **Configurable Contract MDR Schedules**: Merchant-specific MDR rules engine based on custom BIN and payment gateway tiers.
+* **Automated Dispute Dispatch**: 1-click dispute submission directly into gateway merchant portals.
+
+---
+
+## Summary
+
+AI Finance Controller is built around a core engineering principle:
+
+> **AI should not just explain financial data — it should reconcile it, surface exceptions, show its evidence, and help finance teams act with confidence.**
+
+* **GitHub Repository**: [https://github.com/nitesh-20/AI-Finance-Controller](https://github.com/nitesh-20/AI-Finance-Controller)
