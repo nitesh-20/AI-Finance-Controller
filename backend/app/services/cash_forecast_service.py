@@ -8,7 +8,7 @@ class CashForecastService:
         self.base_cash = base_cash
         self.refund_buffer = refund_buffer
 
-    def calculate_cash_position_and_forecast(self) -> Tuple[CashPositionModel, List[CashForecastDayModel]]:
+    def calculate_cash_position_and_forecast(self, days: int = 7) -> Tuple[CashPositionModel, List[CashForecastDayModel]]:
         overview = settlement_service.get_settlement_overview()
         pending_inflow = overview.pending_settlement_amount
         holdbacks = overview.total_discrepancy_amount
@@ -25,44 +25,60 @@ class CashForecastService:
         )
 
         forecast: List[CashForecastDayModel] = []
-        days_labels = ["Today", "Tomorrow", "+2 Days", "+3 Days", "+4 Days", "+5 Days", "+6 Days"]
         rolling_balance = self.base_cash
 
-        daily_inflows = [
+        base_inflows = [
             pending_inflow * 0.7,
             pending_inflow * 0.3 + 45000.0,
             52000.0,
             61000.0,
             48000.0,
             73000.0,
-            68000.0
+            68000.0,
+            55000.0,
+            49000.0,
+            62000.0,
+            58000.0,
+            71000.0,
+            64000.0,
+            59000.0
         ]
-        daily_outflows = [
+        base_outflows = [
             2500.0,
             18000.0,
             12000.0,
             8000.0,
             14000.0,
             9500.0,
-            11000.0
+            11000.0,
+            15000.0,
+            10000.0,
+            13000.0,
+            8500.0,
+            12000.0,
+            9000.0,
+            10500.0
         ]
 
         now = datetime.now()
-        for i in range(7):
+        horizon = min(max(days, 1), 14)
+        for i in range(horizon):
             day_dt = now + timedelta(days=i)
             date_str = day_dt.strftime("%d %b")
-            inflow = daily_inflows[i]
-            outflow = daily_outflows[i]
+            day_label = "Today" if i == 0 else ("Tomorrow" if i == 1 else f"+{i} Days")
+            inflow = base_inflows[i] if i < len(base_inflows) else 50000.0
+            outflow = base_outflows[i] if i < len(base_outflows) else 10000.0
             rolling_balance = rolling_balance + inflow - outflow
+            confidence = max(98 - (i * 3), 70)
 
             forecast.append(
                 CashForecastDayModel(
                     date=date_str,
-                    dayLabel=days_labels[i],
+                    dayLabel=day_label,
                     projectedInflow=round(inflow, 2),
                     projectedOutflow=round(outflow, 2),
                     projectedClosingBalance=round(rolling_balance, 2),
-                    confidenceScore=95
+                    confidenceScore=confidence
                 )
             )
 

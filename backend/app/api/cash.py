@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from typing import List, Dict, Any
 from ..models.finance import CashPositionModel, CashForecastDayModel
 from ..services.cash_forecast_service import cash_forecast_service
@@ -12,7 +12,9 @@ async def get_cash_position():
     return cash_pos
 
 @router.get("/forecast", response_model=List[CashForecastDayModel])
-async def get_cash_forecast():
-    """Get 7-day daily forward cash runway forecast."""
-    _, forecast = cash_forecast_service.calculate_cash_position_and_forecast()
+async def get_cash_forecast(
+    days: int = Query(7, ge=1, le=14, description="Forecast horizon in days (1 to 14)")
+):
+    """Get dynamic forward cash runway forecast."""
+    _, forecast = cash_forecast_service.calculate_cash_position_and_forecast(days=days)
     return forecast
