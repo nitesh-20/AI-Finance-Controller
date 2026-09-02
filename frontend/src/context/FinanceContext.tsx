@@ -104,13 +104,16 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [exceptions, setExceptions] = useState<FinancialException[]>([]);
   const [settlementBatches, setSettlementBatches] = useState<SettlementRecord[]>([]);
   const [settlementOverview, setSettlementOverview] = useState<SettlementOverview>({
-    totalSettledAmount: 2508000.0,
-    pendingSettlementAmount: 342000.0,
-    totalFeesDeducted: 57000.0,
-    totalTaxDeducted: 10260.0,
-    settlementDiscrepanciesCount: 15,
-    totalDiscrepancyAmount: 42800.0,
-    nextSettlementDate: '2026-03-26'
+    totalGrossSettled: 237470.0,
+    totalNetReceived: 230604.31,
+    totalSettledAmount: 230604.31,
+    pendingSettlementAmount: 57431.85,
+    totalFeesDeducted: 5479.4,
+    totalGstDeducted: 986.29,
+    totalTaxDeducted: 986.29,
+    settlementDiscrepanciesCount: 3,
+    totalDiscrepancyAmount: 788.8,
+    nextSettlementDate: '2026-08-22'
   });
 
   const [cashPosition, setCashPosition] = useState<CashPosition>({

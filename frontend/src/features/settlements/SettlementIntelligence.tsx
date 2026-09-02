@@ -47,35 +47,35 @@ export const SettlementIntelligence: React.FC = () => {
         <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-xs">
           <span className="text-[11px] text-slate-500">Gross Volume</span>
           <div className="text-lg font-bold text-slate-900 mt-0.5">
-            ₹{(settlementOverview.totalGrossSettled / 100000).toFixed(2)}L
+            ₹{((settlementOverview.totalGrossSettled || 0) / 100000).toFixed(2)}L
           </div>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-xs">
           <span className="text-[11px] text-slate-500">Net Bank Credit</span>
           <div className="text-lg font-bold text-emerald-700 mt-0.5">
-            ₹{(settlementOverview.totalNetReceived / 100000).toFixed(2)}L
+            ₹{((settlementOverview.totalNetReceived || 0) / 100000).toFixed(2)}L
           </div>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-xs">
           <span className="text-[11px] text-slate-500">MDR Fees + GST</span>
           <div className="text-lg font-bold text-slate-900 mt-0.5">
-            ₹{(settlementOverview.totalFeesDeducted + settlementOverview.totalGstDeducted).toLocaleString('en-IN')}
+            ₹{((settlementOverview.totalFeesDeducted || 0) + (settlementOverview.totalGstDeducted || 0)).toLocaleString('en-IN')}
           </div>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-xs">
           <span className="text-[11px] text-slate-500">Pending (T+1)</span>
           <div className="text-lg font-bold text-slate-900 mt-0.5">
-            ₹{settlementOverview.pendingSettlementAmount.toLocaleString('en-IN')}
+            ₹{(settlementOverview.pendingSettlementAmount || 0).toLocaleString('en-IN')}
           </div>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-xs">
           <span className="text-[11px] text-slate-500">Variance Discrepancy</span>
           <div className="text-lg font-bold text-red-600 mt-0.5">
-            ₹{settlementOverview.totalDiscrepancyAmount.toFixed(2)}
+            ₹{(settlementOverview.totalDiscrepancyAmount || 0).toFixed(2)}
           </div>
         </div>
       </div>
