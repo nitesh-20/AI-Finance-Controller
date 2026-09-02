@@ -355,7 +355,7 @@ class FinanceControllerAgent:
             )
 
         # 6. Intent: Reconciliation & Match Rate
-        if any(w in q for w in ["reconcil", "match", "batch", "ledger", "fail", "pass", "accuracy", "rate", "how many"]):
+        if any(w in q for w in ["reconcil", "match", "batch", "ledger", "fail", "pass", "accuracy", "rate", "how many", "kitna match", "hisaab", "status kya"]):
             tools_used.append("tool_reconcile_transactions")
             reasoning_steps.append("Executing deterministic 10-step arithmetic matching loop...")
             recon_data = tool_reconcile_transactions()
