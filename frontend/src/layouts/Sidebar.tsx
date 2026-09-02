@@ -13,9 +13,9 @@ import {
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
-  const { activeTab, setActiveTab, exceptions, metrics } = useFinance();
+  const { activeTab, setActiveTab, exceptions, threeWayRecords, metrics } = useFinance();
 
-  const openExceptionsCount = exceptions.filter(e => e.status === 'OPEN').length;
+  const openExceptionsCount = threeWayRecords.filter(r => r.current_status === 'EXCEPTION').length || exceptions.filter(e => e.status === 'OPEN').length;
 
   const navItems: { id: AppTab; label: string; icon: React.FC<{ className?: string }>; badge?: string | number; badgeColor?: string }[] = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
