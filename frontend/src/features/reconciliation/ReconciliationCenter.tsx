@@ -287,20 +287,34 @@ export const ReconciliationCenter: React.FC = () => {
             {/* Drawer Header */}
             <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                  Reconciliation Audit Record
+                <div className="flex items-center space-x-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    Reconciliation Audit Voucher
+                  </span>
+                  <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-mono text-slate-700">
+                    {selectedRecord.invoice_id}
+                  </span>
                 </div>
                 <div className="text-base font-bold text-slate-900 font-mono mt-0.5">
                   {selectedRecord.transaction_id}
                 </div>
               </div>
 
-              <button
-                onClick={() => setSelectedRecord(null)}
-                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex items-center space-x-2">
+                <span className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                  selectedRecord.current_status === 'MATCHED'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {selectedRecord.current_status}
+                </span>
+                <button
+                  onClick={() => setSelectedRecord(null)}
+                  className="rounded-md p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             {/* Drawer Content */}
