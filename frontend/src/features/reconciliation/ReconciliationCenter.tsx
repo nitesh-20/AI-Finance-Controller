@@ -41,7 +41,7 @@ export const ReconciliationCenter: React.FC = () => {
   } = useFinance();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'MATCHED' | 'EXCEPTIONS' | 'AI_PROPOSED'>('ALL');
+  const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'MATCHED' | 'EXCEPTIONS' | 'HIGH_VARIANCE' | 'AI_PROPOSED'>('ALL');
   const [selectedRecord, setSelectedRecord] = useState<ThreeWayReconciliationRecord | null>(null);
   const [showAuditTrail, setShowAuditTrail] = useState(true);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
@@ -58,6 +58,7 @@ export const ReconciliationCenter: React.FC = () => {
 
     if (selectedFilter === 'MATCHED') return r.current_status === 'MATCHED';
     if (selectedFilter === 'EXCEPTIONS') return r.current_status === 'EXCEPTION';
+    if (selectedFilter === 'HIGH_VARIANCE') return Math.abs(r.variance) >= 500;
     if (selectedFilter === 'AI_PROPOSED') return r.match_method === 'AI_SEMANTIC' || r.current_status === 'AI_PROPOSED';
     return true;
   });
@@ -126,8 +127,8 @@ export const ReconciliationCenter: React.FC = () => {
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-        <div className="flex items-center space-x-1.5 w-full sm:w-auto">
-          {(['ALL', 'MATCHED', 'EXCEPTIONS', 'AI_PROPOSED'] as const).map((filter) => (
+        <div className="flex items-center space-x-1.5 w-full sm:w-auto flex-wrap gap-y-1.5">
+          {(['ALL', 'MATCHED', 'EXCEPTIONS', 'HIGH_VARIANCE', 'AI_PROPOSED'] as const).map((filter) => (
             <button
               key={filter}
               onClick={() => setSelectedFilter(filter)}
@@ -140,6 +141,7 @@ export const ReconciliationCenter: React.FC = () => {
               {filter === 'ALL' && `All (${threeWayRecords.length})`}
               {filter === 'MATCHED' && `Matched (${threeWayRecords.filter(r => r.current_status === 'MATCHED').length})`}
               {filter === 'EXCEPTIONS' && `Exceptions (${threeWayRecords.filter(r => r.current_status === 'EXCEPTION').length})`}
+              {filter === 'HIGH_VARIANCE' && `High Variance (${threeWayRecords.filter(r => Math.abs(r.variance) >= 500).length})`}
               {filter === 'AI_PROPOSED' && `AI Residuals (${threeWayRecords.filter(r => r.match_method === 'AI_SEMANTIC').length})`}
             </button>
           ))}
