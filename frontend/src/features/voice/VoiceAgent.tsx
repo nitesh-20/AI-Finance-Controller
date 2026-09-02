@@ -318,15 +318,17 @@ export const VoiceAgent: React.FC<VoiceAgentProps> = ({
           <div className="mt-3 flex flex-wrap justify-center gap-1.5 max-w-md">
             {[
               "What needs my attention today?",
+              "₹400 ka difference kahan se aaya?",
               "Why was TXN_98217345 flagged?",
               "Quarantine it",
               "Verify it",
-              "What's our cash position?"
+              "What's our cash position?",
+              "Reconciliation status kya hai?"
             ].map(prompt => (
               <button
                 key={prompt}
                 onClick={() => handleUserQuery(prompt)}
-                className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors shrink-0"
               >
                 {prompt}
               </button>
