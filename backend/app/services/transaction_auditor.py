@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from ..models.transaction import FinancialRecordModel
+from ..core.config import settings
 from ..models.auditor import (
     TransactionAuditResultModel,
     AuditWaterfallModel,
@@ -10,9 +11,15 @@ from ..models.auditor import (
 )
 
 class TransactionAuditorService:
-    def __init__(self, standard_contracted_mdr: float = 0.02, standard_gst_rate: float = 0.18):
+    def __init__(
+        self, 
+        standard_contracted_mdr: float = settings.DEFAULT_GATEWAY_FEE_RATE, 
+        standard_gst_rate: float = settings.DEFAULT_GST_RATE
+    ):
         self.standard_contracted_mdr = standard_contracted_mdr
         self.standard_gst_rate = standard_gst_rate
+        self.exact_tolerance = settings.EXACT_MATCH_TOLERANCE
+        self.gst_rounding_tolerance = settings.GST_ROUNDING_TOLERANCE
 
     def audit_transaction(
         self, 
@@ -55,7 +62,7 @@ class TransactionAuditorService:
                 recon_status = "PENDING"
         else:
             variance = round(theoretical_net - actual_settled, 2)
-            recon_status = "MATCHED" if abs(variance) <= 0.05 else "DISCREPANCY"
+            recon_status = "MATCHED" if abs(variance) <= self.exact_tolerance else "DISCREPANCY"
 
         # 2. Deterministic Root-Cause & Evidence Classification
         root_cause = RootCauseClassification.MATCHED.value
@@ -123,7 +130,7 @@ class TransactionAuditorService:
                 evidence.append(f"Excess MDR variance: ₹{variance:,.2f}")
 
             # Rule F: GST Calculation / Rounding Error
-            elif (0.05 < abs(variance) <= 1.50) or (record.actual_gst and abs(record.actual_gst - gst_on_mdr) > 1.0):
+            elif (self.exact_tolerance < abs(variance) <= self.gst_rounding_tolerance) or (record.actual_gst and abs(record.actual_gst - gst_on_mdr) > 1.0):
                 root_cause = RootCauseClassification.GST_ROUNDING_ERROR.value
                 confidence = 96
                 why_flagged = f"GST difference of ₹{abs((record.actual_gst or 0) - gst_on_mdr):,.2f} detected on gateway fee calculations."
