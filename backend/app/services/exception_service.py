@@ -37,6 +37,14 @@ class ExceptionService:
                 return e
         return None
 
+    def bulk_update_status(self, exc_ids: List[str], status: str, notes: Optional[str] = None) -> List[FinancialExceptionModel]:
+        updated: List[FinancialExceptionModel] = []
+        for eid in exc_ids:
+            res = self.update_status(eid, status, notes)
+            if res:
+                updated.append(res)
+        return updated
+
     def get_active_exceptions(self) -> List[Dict[str, Any]]:
         return [
             {
