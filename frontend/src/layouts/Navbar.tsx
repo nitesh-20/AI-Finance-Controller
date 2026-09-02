@@ -41,8 +41,15 @@ export const Navbar: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-1.5 text-[11px] text-slate-500 font-medium pl-1">
+          <span className="relative flex h-2 w-2 mr-1">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
           <span>{metrics.totalRecordsProcessed} records reconciled ({metrics.matchRatePercentage}%)</span>
+          <span className="ml-1.5 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-mono text-emerald-700 font-semibold border border-emerald-200">
+            &lt; 2ms
+          </span>
         </div>
       </div>
 
