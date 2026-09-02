@@ -58,6 +58,56 @@ It combines a **Deterministic Financial Arithmetic Engine** with an **Autonomous
      - `FinanceControllerAgent`: Central coordinator and dispatcher.
      - `ReconciliationAgent`: Ledger matching and anomaly detection.
      - `SettlementAgent`: Gateway batch integrity and payout schedules.
+     - `ExceptionAgent`: Operations queue and severity triage.
+     - `CashForecastAgent`: 7-day rolling cash liquidity forecasting.
+
+---
+
+## 3-Way Reconciliation Dataflow
+
+```mermaid
+flowchart TD
+    A[Merchant ERP Invoices] --> D[Normalization Engine]
+    B[Razorpay Settlement Batches] --> D
+    C[Bank MT940 / Credit Statements] --> D
+    
+    D --> E[Deterministic Matching Engine]
+    E -->|Exact Match <= ₹0.05| F[Verified Clean Ledger]
+    E -->|Variance Detected| G[AI Root-Cause Diagnostic Agent]
+    
+    G --> H[Exception Queue & Evidence Drawer]
+    H --> I[Dispute Razorpay]
+    H --> J[Journal Adjustment]
+    H --> K[Quarantine Transaction]
+    
+    F --> L[Audit Trail Persistence]
+    H --> L
+    L --> M[Vaani Voice Copilot & Executive Dashboard]
+```
+
+---
+
+## Transaction Audit Sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Ops as Finance Operator / Vaani Voice
+    participant Controller as FinanceControllerAgent
+    participant Auditor as TransactionAuditorService
+    participant Settings as Config & Contract Rules
+    participant DB as Audit Ledger
+
+    Ops->>Controller: "Why was TXN_98217345 flagged?"
+    Controller->>Auditor: audit_transaction(TXN_98217345)
+    Auditor->>Settings: Load contracted MDR (2.0%) & GST (18%)
+    Auditor->>Auditor: Compute Theoretical Net vs Bank Payout
+    Auditor->>Auditor: Detect ₹400 discrepancy
+    Auditor->>Controller: Return AuditWaterfall + Root Cause (Unmapped Chargeback)
+    Controller->>DB: Log immutable audit event
+    Controller->>Ops: Synthesize natural voice answer with actionable traces
+```
+
      - `ExceptionAgent`: Severity scoring and priority queue management.
      - `ForecastingAgent`: Rolling 7-day cash flow projections.
      - `AuditAgent`: Compliance trail generation and proof logging.
