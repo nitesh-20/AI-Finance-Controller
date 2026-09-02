@@ -66,6 +66,29 @@ class SettlementService:
             "pending_settlement_amount": overview.pending_settlement_amount
         }
 
+    def get_batch_by_id(self, settlement_id: str) -> Optional[SettlementRecordModel]:
+        batches = self.get_all_batches()
+        for b in batches:
+            if b.settlement_id == settlement_id:
+                return b
+        return None
+
+    def filter_batches(self, status: Optional[str] = None, search: Optional[str] = None) -> List[SettlementRecordModel]:
+        batches = self.get_all_batches()
+        results = []
+        for b in batches:
+            if status and status.lower() != "all" and b.status.lower() != status.lower():
+                continue
+            if search:
+                q = search.lower()
+                utr_match = b.utr_number and q in b.utr_number.lower()
+                id_match = q in b.settlement_id.lower()
+                reason_match = b.discrepancy_reason and q in b.discrepancy_reason.lower()
+                if not (utr_match or id_match or reason_match):
+                    continue
+            results.append(b)
+        return results
+
     def get_discrepancies(self) -> List[SettlementRecordModel]:
         return [b for b in self.get_all_batches() if b.status == "discrepancy" or b.difference != 0]
 
