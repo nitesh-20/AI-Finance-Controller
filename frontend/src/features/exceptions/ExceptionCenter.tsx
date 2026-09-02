@@ -44,6 +44,7 @@ export const ExceptionCenter: React.FC = () => {
     })
     .sort((a, b) => {
       if (sortBy === 'VARIANCE') return b.difference - a.difference;
+      if (sortBy === 'CONFIDENCE') return (b.aiConfidence || 0) - (a.aiConfidence || 0);
       if (sortBy === 'SEVERITY') {
         const order: Record<string, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
         return (order[b.severity] || 0) - (order[a.severity] || 0);
