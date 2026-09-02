@@ -218,9 +218,11 @@ export const SettlementIntelligence: React.FC = () => {
                 <span className="text-slate-500">Destination Account:</span>
                 <span className="font-medium text-slate-900">HDFC Bank (•••• 4892)</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-slate-500">Bank Payout UTR:</span>
-                <span className="font-mono text-slate-700">{selectedBatch.utrNumber || 'Pending release'}</span>
+                <span className="font-mono text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded text-[11px]">
+                  {selectedBatch.utrNumber || 'Pending release'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">MDR Fee (2%):</span>
