@@ -201,14 +201,14 @@ export const ReportsView: React.FC = () => {
               <FileText className="h-6 w-6" />
             </div>
             <span className="text-xs font-bold text-emerald-400 bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-800/40">
-              52 Records Verified
+              {metrics.totalRecordsProcessed} Records Verified
             </span>
           </div>
 
           <div>
             <h3 className="text-base font-bold text-white">Reconciliation Audit Report</h3>
             <p className="mt-1 text-xs text-slate-400 leading-relaxed">
-              Complete statutory ledger containing 52 processed transactions, 92.3% match rate validation, and itemized evidence trails for all 4 isolated anomalies.
+              Complete statutory ledger containing {metrics.totalRecordsProcessed} processed transactions, {metrics.matchRatePercentage}% match rate validation, and itemized evidence trails.
             </p>
           </div>
 
