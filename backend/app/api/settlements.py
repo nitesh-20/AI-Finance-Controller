@@ -5,6 +5,7 @@ from ..services.settlement_service import settlement_service
 router = APIRouter(prefix="/settlements", tags=["Settlements"])
 
 @router.get("", response_model=SettlementOverviewModel)
+@router.get("/overview", response_model=SettlementOverviewModel)
 async def get_settlement_overview():
     """Get gross vs net settlements, fee deductions, and batches."""
     return settlement_service.get_settlement_overview()

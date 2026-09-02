@@ -159,13 +159,17 @@ export interface SettlementRecord {
 }
 
 export interface SettlementOverview {
-  totalSettledAmount: number;
+  totalGrossSettled: number;
+  totalNetReceived: number;
+  totalSettledAmount?: number;
   pendingSettlementAmount: number;
   totalFeesDeducted: number;
-  totalTaxDeducted: number;
-  settlementDiscrepanciesCount: number;
+  totalGstDeducted: number;
+  totalTaxDeducted?: number;
+  settlementDiscrepanciesCount?: number;
   totalDiscrepancyAmount: number;
-  nextSettlementDate: string;
+  nextSettlementDate?: string;
+  batches?: SettlementRecord[];
 }
 
 export interface CashPosition {
