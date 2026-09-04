@@ -66,10 +66,27 @@ class CashForecastService:
             day_dt = now + timedelta(days=i)
             date_str = day_dt.strftime("%d %b")
             day_label = "Today" if i == 0 else ("Tomorrow" if i == 1 else f"+{i} Days")
-            inflow = base_inflows[i] if i < len(base_inflows) else 50000.0
-            outflow = base_outflows[i] if i < len(base_outflows) else 10000.0
+            
+            # Base daily estimates
+            raw_inflow = base_inflows[i] if i < len(base_inflows) else 50000.0
+            raw_outflow = base_outflows[i] if i < len(base_outflows) else 10000.0
+            
+            # Weekend banking cycle adjustment: Indian bank settlements (NEFT/RTGS) pause on Sundays
+            weekday = day_dt.weekday()  # 5 is Saturday, 6 is Sunday
+            if weekday == 6:  # Sunday
+                inflow = raw_inflow * 0.15  # Only instant UPI / IMPS settles
+                outflow = raw_outflow * 0.40
+            elif weekday == 0:  # Monday catch-up surge
+                inflow = raw_inflow * 1.35
+                outflow = raw_outflow * 1.10
+            else:
+                inflow = raw_inflow
+                outflow = raw_outflow
+                
             rolling_balance = rolling_balance + inflow - outflow
-            confidence = max(98 - (i * 3), 70)
+            
+            # Volatility decay: confidence reduces slightly further into the forecast horizon
+            confidence = max(98 - (i * 3) - (2 if weekday in [5, 6] else 0), 65)
 
             forecast.append(
                 CashForecastDayModel(
