@@ -2,10 +2,11 @@
 Deterministic Financial Verification Gate:
 Strictly enforces the golden rule: "AI proposes. Deterministic verification decides."
 Uses Decimal arithmetic for paise-level precision.
+Guarantees zero invalid auto-posts by rejecting any AI proposal that violates arithmetic or business rules.
 """
 from decimal import Decimal, ROUND_HALF_UP
-from datetime import datetime
-from typing import Dict, Any, List, Optional, Set
+from datetime import datetime, timezone
+from typing import Dict, Any, List, Optional, Set, Tuple
 
 from app.models.reconciliation import VerificationResultModel, AuditWaterfallModel
 
@@ -29,6 +30,7 @@ class FinancialVerificationGate:
     ) -> AuditWaterfallModel:
         """
         Executes strict 10-step financial arithmetic with Decimal accuracy.
+        Gross - MDR - GST on MDR - TDS - Refunds - Chargebacks - Other Deductions = Theoretical Net Settlement
         """
         gross = Decimal(str(gross_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         mdr_rate = Decimal(str(custom_mdr_rate)) if custom_mdr_rate is not None else self.contracted_mdr_rate
@@ -136,7 +138,56 @@ class FinancialVerificationGate:
             variance=float(variance_dec),
             checks_passed=checks_passed,
             checks_failed=checks_failed,
-            verified_at=datetime.utcnow().isoformat() + "Z"
+            verified_at=datetime.now(timezone.utc).isoformat()
         )
 
         return verification_result, waterfall
+
+    def verify_ai_proposal(
+        self,
+        proposal: Dict[str, Any],
+        gross_amount: float,
+        actual_bank_credit: float,
+        utr: Optional[str] = None
+    ) -> Tuple[bool, str, VerificationResultModel]:
+        """
+        Failure Injection Safety Gate:
+        Evaluates an AI Proposal to guarantee:
+        1. AI cannot override mathematical arithmetic.
+        2. If AI claims 'MATCHED' but arithmetic variance > 0.05, proposal is REJECTED.
+        3. If proposed_net diverges from calculated theoretical net settlement, proposal is REJECTED.
+        4. Auto-posting is strictly blocked on any rejection.
+        Returns:
+            - is_eligible_for_posting: bool (True only if mathematically and logically verified)
+            - rejection_reason: str
+            - verification_result: VerificationResultModel
+        """
+        verification_res, waterfall = self.verify_reconciliation(
+            transaction_id=proposal.get("transaction_id", "TXN_AI_PROPOSED"),
+            utr=utr or proposal.get("utr", "UNKNOWN"),
+            gross_amount=gross_amount,
+            actual_bank_credit=actual_bank_credit
+        )
+
+        proposed_status = proposal.get("proposal_type", "") or proposal.get("suggested_action", "")
+        proposed_net = proposal.get("proposed_net")
+
+        # Rule 1: AI claims matched but arithmetic has variance
+        if ("MATCH" in proposed_status.upper() or "CLEAN" in proposed_status.upper()) and verification_res.verification_status != "VERIFIED":
+            return False, f"AI_PROPOSAL_REJECTED: AI claimed match, but arithmetic verifier detected variance ₹{waterfall.variance:,.2f}", verification_res
+
+        # Rule 2: AI proposed net differs from deterministic waterfall
+        if proposed_net is not None:
+            proposed_dec = Decimal(str(proposed_net)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            waterfall_dec = Decimal(str(waterfall.theoretical_net_settlement)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            if abs(proposed_dec - waterfall_dec) > Decimal("0.05"):
+                return False, f"AI_PROPOSAL_REJECTED: Proposed net ₹{proposed_dec:,.2f} contradicts authoritative calculation ₹{waterfall_dec:,.2f}", verification_res
+
+        # Rule 3: High-risk action requires human approval
+        if proposal.get("requires_human_approval", False) or "DISPUTE" in proposed_status or "QUARANTINE" in proposed_status:
+            return False, "ESCALATED_TO_HUMAN_APPROVAL: Action classified as high financial risk", verification_res
+
+        if verification_res.verification_status == "VERIFIED":
+            return True, "VERIFIED_ELIGIBLE_FOR_RESOLUTION", verification_res
+        else:
+            return False, f"FAILED_VERIFICATION_CHECKS: {'; '.join(verification_res.checks_failed)}", verification_res

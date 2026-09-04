@@ -185,8 +185,8 @@ class ReconciliationEngine:
             "total_gross": batch_res.metrics.total_gross_processed,
             "total_reconciled": batch_res.metrics.total_reconciled_amount,
             "total_variance": batch_res.metrics.total_exception_amount,
-            "records": [r.dict() for r in batch_res.records],
-            "exceptions": [e.dict() for e in batch_res.exceptions]
+            "records": [r.model_dump() for r in batch_res.records],
+            "exceptions": [e.model_dump() for e in batch_res.exceptions]
         }
 
 reconciliation_engine = ReconciliationEngine()

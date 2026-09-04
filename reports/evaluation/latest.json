@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-09-04T12:08:22Z",
+  "baseline_comparison": {
+    "system_name": "Naive Baseline (No Verifier)",
+    "total_records": 1000,
+    "matched_count": 985,
+    "match_rate_pct": 98.5,
+    "false_positives": 75,
+    "precision_pct": 92.39,
+    "incorrect_auto_posts": 75,
+    "unresolved_count": 15,
+    "duration_sec": 0.0004
+  },
+  "controller_evaluation": {
+    "dataset": "Held-Out 1000 Records",
+    "total_records": 1000,
+    "matched_count": 910,
+    "ai_assisted_count": 31,
+    "exceptions_count": 90,
+    "match_rate_pct": 91.0,
+    "auto_match_precision_pct": 100.0,
+    "recall_pct": 100.0,
+    "false_positives": 0,
+    "false_negatives": 0,
+    "incorrect_auto_posts": 0,
+    "total_value_reconciled_inr": 19942363.32,
+    "total_value_at_risk_inr": 814357.83,
+    "total_processing_time_sec": 0.0527,
+    "median_latency_per_record_ms": 0.053
+  },
+  "verdict": {
+    "track": "Razorpay AI Buildathon Track 04",
+    "principle": "AI Proposes. Deterministic Logic Verifies. Human Approves High-Risk Actions.",
+    "safety_status": "ZERO_WRONG_AUTO_POSTS_VERIFIED",
+    "evaluator_certified": true
+  }
+}

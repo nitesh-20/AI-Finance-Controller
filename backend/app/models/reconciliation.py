@@ -89,6 +89,15 @@ class ThreeWayBatchResult(BaseModel):
     exception_count: int
     auto_match_precision: float = 100.0
     wrong_auto_posts: int = 0
+    total_gross_processed: float = 0.0
+    total_reconciled_amount: float = 0.0
+    total_exception_amount: float = 0.0
+    match_rate_percentage: float = 0.0
+    recall_percentage: float = 100.0
+    false_positives: int = 0
+    false_negatives: int = 0
+    processing_duration_ms: float = 0.0
+    dataset_seed: Optional[int] = 42
     records: List[ThreeWayReconciliationRecord]
 
 # ----------------------------------------------------
