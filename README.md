@@ -1,352 +1,334 @@
 # AI Finance Controller
 
-### An AI-powered financial reconciliation and verification controller that reconciles multi-source payment data, investigates ambiguous discrepancies, verifies every proposed financial conclusion deterministically, and routes unresolved cases into an auditable exception workflow.
+An AI-assisted financial reconciliation and verification controller that synchronizes multi-source payment data, investigates ambiguous residual transactions, and verifies all financial calculations deterministically. The system isolates unresolved discrepancies into an auditable exception queue and enforces human authorization for high-risk ledger actions.
+
+> **Core Principle:** AI Proposes. Deterministic Logic Verifies. Human Approves High-Risk Actions.
 
 ---
 
-## Razorpay AI Buildathon — Track 04
+## Razorpay AI Builder — Track 04
 
 **Challenge Track:** *AI Finance Controller — "Run the books and the cash position"*
 
-> **Official Track Requirement:**  
-> *"Build an agent that closes one finance-ops loop across a 50+ record batch of synthetic data, reporting its match rate and the exceptions it could not resolve."*  
-> 
-> **Official Evaluation Bar:**  
-> *"Throughput plus measured accuracy plus an honest exception list. One cherry-picked match proves nothing."*
+The track requires an agent that closes a finance-ops loop across a 50+ record batch of synthetic data, reporting its match rate and unresolved exceptions.
 
-In high-velocity digital commerce, finance teams cannot afford to choose between automation and financial correctness. Blindly delegating ledger reconciliation to a generative LLM leads to arithmetic hallucinations, fabricated settlements, and dangerous unauthorized postings.
-
-This project delivers a **production-grade AI Finance Controller** designed around one non-negotiable principle:
-
-$$\mathbf{AI\ Proposes.\ Deterministic\ Logic\ Verifies.\ Human\ Approves\ High\text{-}Risk\ Actions.}$$
-
-The system reconciles multi-source financial ledgers across a **1,000-record held-out evaluation dataset** (`seed=101`), detects 25 distinct financial anomaly types, achieves **0 incorrect auto-posts observed**, and executes closed-loop post-action verification.
+**Implementation Highlights:**
+- **1,000-Record Held-Out Evaluation**: Evaluated on an adversarial dataset (`seed=101`), 20x larger than the 50-record track minimum.
+- **3-Way Multi-Source Ledger**: Synchronizes gateway settlements (modeled on Razorpay settlement formats), bank statements (MT940/CSV), and merchant ERP invoices.
+- **Measured Accuracy**: **91.0% auto-match rate**, **100.0% verified auto-match precision**, and **100.0% clean-record recall**.
+- **Honest Exceptions**: Isolates exactly **90 exceptions** with root causes and evidence trails rather than forcing false matches.
+- **Safety Invariant**: **0 incorrect auto-posts observed** across the 1,000-record held-out evaluation.
 
 ---
 
-## Buildathon Evidence
+## The Problem
 
-**Track Requirement:**  
-*"Build an agent that closes one finance-ops loop across a 50+ record batch of synthetic data, reporting its match rate and the exceptions it could not resolve."*
+Digital merchants receive transaction data from three disconnected sources: gateway settlements, bank statements, and ERP sales ledgers. Finance operations teams spend hours manually cross-checking these records to close books and verify cash positions.
 
-**Our Implementation & Measured Proof:**
-* **Evaluated Batch Volume**: **1,000 records** on a held-out adversarial test dataset (`seed=101`) (20x the track minimum of 50 records).
-* **Multi-Source Financial Ingestion**: Synchronizes 3 independent ledgers: Payment gateway settlement data modeled around Razorpay settlement formats, Bank statement credits (MT940/CSV), and Merchant ERP invoice records.
-* **Deterministic 7-Stage Matching Pipeline**: Ordered matching from exact UTR to subset-sum aggregation and partial refund adjustments.
-* **AI-Assisted Residual Investigation**: Gemini structured proposals deployed strictly for narration fuzzy matching and unmapped residual hypothesis generation.
-* **Deterministic Verification Gate**: Strict Python `Decimal` arithmetic enforces statutory 18% GST and debit-credit balance before any candidate match is confirmed.
-* **Empirical Accuracy**: **91.0% verified auto-match rate**, **100.0% verified auto-match precision**, and **100.0% clean-record recall**.
-* **Honest Exceptions**: Exactly **90 exceptions** surfaced with root causes, evidence trails, and recommended remediations.
-* **Safety Invariant**: **0 incorrect auto-posts observed** in the 1,000-record held-out evaluation (zero false positives).
-* **Human-in-the-Loop & Audit Trail**: High-risk financial adjustments require operator authorization and generate immutable audit entries.
-* **Closed-Loop Post-Action Re-Reconciliation**: Operator-approved actions re-run through the verification gate, reducing transaction variance to ₹0.00 and updating the Finance Health Score.
+Discrepancies commonly arise from:
+- **Settlement timing**: T+1/T+2 banking cut-offs and weekend settlement drift.
+- **Fee and tax variances**: MDR tier variations, statutory 18% GST rounding, and TDS withholding.
+- **Operational deductions**: Partial/full refunds, unnotified chargeback reserves, and bank handling fees.
+- **Data gaps**: Duplicate captures, reused UTRs, missing ERP invoices, and truncated narrations.
+
+A generative LLM alone is fundamentally unsuitable for financial reconciliation. Probabilistic language models hallucinate arithmetic, drop fee schedules, and fabricate matches.
+
+The AI Finance Controller automates repetitive matching while preventing unverified AI outputs from updating the ledger.
 
 ---
 
-## Why Not Just Use an LLM?
+## How It Works
 
-Finance systems cannot treat generated text as financial truth. Financial ledgers are governed by strict accounting invariants: debits must equal credits, statutory tax schedules are legally binding, and rounding errors compound into critical balance-sheet variances.
+```text
+Gateway Settlement Data (Modeled on Razorpay Formats)
+                         ↓
+             Bank Statement (MT940 / CSV)
+                         ↓
+             Merchant Ledger / ERP Invoice
+                         ↓
+               Data Normalization
+                         ↓
+         7-Stage Deterministic Matching Engine
+                         ↓
+             AI Residual Investigation
+                         ↓
+             Financial Verification Gate
+                         ↓
+             ┌───────────┴───────────┐
+             ↓                       ↓
+          MATCHED                EXCEPTION
+      (Auto-Posted)         (Human Approval Gate)
+                                     ↓
+                        Closed-Loop Post-Action Audit
+```
 
-| Responsibility | Generative LLM Alone | AI Finance Controller Architecture |
+### Core Flow
+1. **Multi-Source Ingestion**: Ingests gateway settlements (gross, MDR, GST, net, UTR), bank statements, and ERP invoices.
+2. **7-Stage Matching**: Resolves unambiguous records in hierarchical order (exact UTR to aggregation and refunds).
+3. **AI Residual Investigation**: Formulates candidate hypotheses for ambiguous residuals.
+4. **Financial Verification Gate**: Audits every candidate match against strict Decimal debit-credit arithmetic.
+5. **Exception Routing**: Unverified or high-risk items route to the Exception Center with evidence and suggested actions.
+6. **Human Approval Gate**: Operators authorize high-risk actions (disputes, adjustments, refunds, quarantines).
+7. **Post-Action Re-Verification**: Re-verifies executed actions to drive variance to ₹0.00 and logs immutable audit trails.
+
+*Note: Gateway data is synthetically generated and modeled around Razorpay settlement formats. The repository does not connect to live Razorpay or banking APIs.*
+
+---
+
+## Why AI + Deterministic Logic
+
+In financial operations, probabilistic reasoning and deterministic accounting have distinct roles:
+
+| Responsibility | AI Layer (Generative & Semantic) | Deterministic Financial Engine |
 | :--- | :--- | :--- |
-| **Monetary Arithmetic** | Unreliable; susceptible to tokenization drift & hallucinations | **Authoritative Python `Decimal`** with paise quantization |
-| **Statutory Tax (GST/TDS)** | Often approximates or rounds arbitrarily | **Deterministic Rule Verification** against statutory 18% schedules |
-| **Matching Decision** | Probabilistic matching risks posting false reconciliations | **Deterministic 7-Stage Engine** establishes verifiable matches |
-| **Ambiguous Bank Narrations** | Effective at pattern matching and semantic synthesis | **AI Residual Resolver** generates structured hypotheses |
-| **Posting Eligibility** | LLM output directly triggers ledger state changes | **Verification Gate** deterministically verifies before posting |
-| **Discrepancy Handling** | Often hallucinates explanations to force a match | **Surfaces Honest Exceptions** with ranked operational priority |
+| **Monetary Arithmetic** | ❌ Prone to hallucinations & rounding drift | ✅ Authoritative Python `Decimal` (paise-accurate) |
+| **Tax & Fee Schedules** | ❌ Approximates or drops fee schedules | ✅ Statutory 18% GST and contractual MDR validation |
+| **Posting Authority** | ❌ **Never** authorized to clear transactions | ✅ Sole gatekeeper for ledger updates and auto-posts |
+| **Bank Narrations** | ✅ Parses cryptic UPI/NEFT references & aliases | ❌ Limited to exact regex or strict keyword rules |
+| **Residual Investigation** | ✅ Generates structured root-cause hypotheses | ❌ Cannot infer business context from unstructured text |
+| **Action Remediation** | ✅ Suggests prioritized operational actions | ✅ Re-audits executed actions to confirm zero variance |
 
-**Core Principle:**  
-$\mathbf{AI\ Proposes.\ Deterministic\ Logic\ Verifies.\ Human\ Approves\ High\text{-}Risk\ Actions.}$
+### The Enforcement Invariant
+AI proposals **never directly become financial truth**.
 
----
-
-## The Key Differentiator
-
-> [!IMPORTANT]
-> **We do not ask an LLM to decide whether financial records match.**
-> 
-> In this controller, authoritative deterministic controls establish financial truth:
-> 1. **Decimal Arithmetic**: Every monetary calculation (MDR, GST, TDS, refunds, chargebacks, variances) is executed in Python `Decimal` with strict paise-level quantization. Zero floating-point drift is tolerated.
-> 2. **Verification Gate**: No AI proposal can update the general ledger or clear a transaction without passing mathematical debit-credit verification.
-> 3. **Honest Exceptions**: When evidence is ambiguous or calculations diverge, the controller does not guess—it surfaces structured, confidence-rated exceptions into an operational queue.
+When the AI Residual Resolver generates a candidate proposal (`proposal_type`, `candidate_records`, `proposed_net`, `reasoning`):
+1. The proposal is routed to the **Financial Verification Gate**.
+2. The gate independently recalculates the financial waterfall using authoritative ledger values.
+3. If the proposed net diverges from calculated net settlement, or if variance exceeds the threshold:
+   - **Auto-posting is strictly blocked.**
+   - The proposal is rejected with a machine-readable reason.
+   - The transaction is quarantined in the Exception Queue for operator review.
 
 ---
 
-## Product North Star Architecture
+## Reconciliation Engine
 
-```mermaid
-flowchart TD
-    A[Razorpay Settlement Manifest] --> D[Multi-Source Data Normalization]
-    B[Bank Statement MT940 / CSV] --> D
-    C[Merchant ERP Invoice Ledger] --> D
+The matching pipeline (`backend/app/services/matching/deterministic_engine.py`) implements 7 sequential stages, resolving simple, deterministic pairings before complex strategies execute:
 
-    D --> E[Sequential 7-Stage Deterministic Matching Engine]
+1. **`EXACT_UTR`**: Matches unique transaction references between gateway settlement and bank statement.
+2. **`EXACT_AMOUNT_DATE`**: Matches exact net payout amounts for same-day calendar settlements.
+3. **`AMOUNT_DATE_WINDOW`**: Reconciles amounts across T+1 and T+2 banking cycle drift.
+4. **`REFERENCE_SIMILARITY`**: Extracts Order IDs, Invoice numbers, or ARNs from unstructured bank narrations.
+5. **`SETTLEMENT_AGGREGATION`**: Combinatorial subset-sum solver matching single bulk bank credits to multiple settlement batches.
+6. **`PARTIAL_REFUND_ADJUSTMENT`**: Reconciles net payouts adjusted for customer refunds and cancellations.
+7. **`UNRESOLVED_RESIDUALS`**: Escalates ambiguous residuals to the AI Residual Resolver for structured hypothesis generation.
 
-    E -->|Clean Match| G[Financial Verification Gate]
-    E -->|Ambiguous Residual| H[AI Residual Investigator]
+---
 
-    H -->|Structured Hypothesis| I[AI Proposal JSON Schema]
-    I --> G
+## Financial Verification Gate
 
-    G -->|Debit-Credit Balanced| J{Verified?}
-    J -->|Yes: Zero Variance| K[Auto-Cleared Match & General Ledger]
-    J -->|No: Discrepancy Found| L[Exception Center Operations Queue]
+The Verification Gate (`backend/app/services/verifier/verification_gate.py`) provides the mathematical barrier protecting the ledger.
 
-    L --> M[Human-in-the-Loop Approval Gate]
-    M -->|Dispute / Adjustment / Quarantine| N[Post-Action Verification Engine]
-    N -->|Variance -> ₹0.00| O[Closed-Loop Resolution & Health Update]
+### Implemented Formula
+For every transaction:
 
-    K --> P[Immutable 10-Step Audit Trail]
-    O --> P
-    P --> Q[Fintech Dashboard & Vaani Voice Copilot]
+$$\text{MDR Amount} = \text{Gross Amount} \times \text{Contracted MDR Rate (2.00\%)}$$
+
+$$\text{GST on MDR} = \text{MDR Amount} \times \text{Statutory GST Rate (18.00\%)}$$
+
+$$\text{Expected Net Settlement} = \text{Gross} - \text{MDR} - \text{GST} - \text{TDS} - \text{Refunds} - \text{Chargebacks} - \text{Other Deductions}$$
+
+$$\text{Variance} = \text{Expected Net Settlement} - \text{Actual Bank Credit}$$
+
+### Verification Rules
+1. **Paise-Level Decimal Arithmetic**: Uses Python `Decimal` with strict `ROUND_HALF_UP` quantization to `0.01` (1 paise). Floating-point math is prohibited.
+2. **Variance Threshold**: A transaction is verified if and only if $|\text{Variance}| \le \text{₹}0.05$ (5 paise tolerance for currency rounding).
+3. **Unique UTR Enforcement**: Re-settling an already credited UTR is blocked (`DUPLICATE_UTR_DETECTED`).
+4. **Statutory Tax Validation**: GST on MDR must match the statutory 18% schedule (within ₹0.02).
+
+Proposals failing verification receive `verification_status: "REJECTED"`, blocking auto-posting. Across the 1,000-record held-out evaluation, **0 incorrect auto-posts were observed**.
+
+---
+
+## Evaluation Results
+
+Measured via `scripts/evaluate_controller.py` on the **1,000-record held-out synthetic dataset** (`seed=101`) containing 25 distinct adversarial anomaly types:
+
+| Metric | Naive LLM Baseline | AI Finance Controller |
+| :--- | :---: | :---: |
+| **Total Records Processed** | 1,000 | **1,000** |
+| **Clean Matches** | 985 | **910** |
+| **Auto-Match Rate** | 98.5% *(unverified)* | **91.0%** |
+| **Verified Auto-Match Precision** | 92.39% | **100.0%** |
+| **Clean-Record Recall** | N/A | **100.0%** |
+| **False Positives** | 75 | **0** |
+| **Incorrect Auto-Posts Observed** | 75 | **0** |
+| **Honest Exceptions Isolated** | 15 *(omitted 75)* | **90** |
+| **Total Value Reconciled** | Unverified | **₹19,942,363.32** |
+| **Total Value at Risk** | Unknown | **₹814,357.83** |
+| **Deterministic Engine Processing Time** | 0.000s | **0.052s** |
+| **Deterministic Latency (p50)** | — | **0.052 ms / record** |
+
+*Performance Note: Processing duration and latency reflect local Python deterministic calculation and matching engine speed, not remote LLM API latency.*
+
+### Metric Definitions
+- **Auto-Match Precision**: Correct Verified Auto-Matches / Total Verified Auto-Matches = 910 / 910 = **100.0%**.
+- **Clean-Record Recall**: Correctly Recovered Clean Matches / All Ground-Truth Clean Matches = 910 / 910 = **100.0%**.
+- **Baseline Comparison**: The Naive baseline matched blindly on references without debit-credit checks, reporting an inflated 98.5% match rate while falsely posting 75 invalid transactions (duplicate UTRs, fee discrepancies, partial refunds). The AI Finance Controller caught all 75 invalid pairings, isolating 90 honest exceptions.
+
+---
+
+## Adversarial Evaluation
+
+The dataset generator (`data/synthetic/generator.py`) injects 25 realistic merchant anomalies across 10 categories to test beyond clean happy-path records:
+
+- **Duplicate Transactions / UTRs**: Gateway reused UTRs; dual capture of identical orders.
+- **Settlement Timing Issues**: T+1 bank credit delays; T+2 weekend and clearing holiday drift.
+- **Refunds & Chargebacks**: Partial customer order cancellations; full refunds; unitemized ₹400 chargeback holdbacks.
+- **MDR & GST Discrepancies**: International card rate misclassifications (3.5% vs 2.0%); GST rounding divergences.
+- **Missing Records**: Orphan gateway settlements missing in bank statements; missing ERP invoices.
+- **Aggregation & Split Settlements**: Multi-settlement bulk bank credits (subset-sum); payments split across batches.
+- **Reference & Narration Variations**: Truncated UPI/NEFT references; merchant name aliases.
+- **Amount Mismatches**: Unannounced bank handling fees; incorrect transfer amounts.
+- **Ambiguous Cases**: Cryptic narrations lacking identifiers; identical-amount transaction collisions.
+
+---
+
+## Safety Demonstration
+
+The platform includes an automated failure injection safety test (`test_failure_injection.py` and UI trigger `"Simulate Unsafe AI Proposal"`):
+
+```text
+Adversarial Input: AI Proposal claims "MATCHED" with net payout ₹12,156.18
+                   Actual Bank Credit is ₹11,756.18 (₹400 variance)
+                                 ↓
+            Verification Gate independently calculates waterfall
+                     Expected Net: ₹12,156.18
+                     Actual Credit: ₹11,756.18
+                     Variance: ₹400.00 (|Variance| > ₹0.05)
+                                 ↓
+           Result: Verification Fails ("VARIANCE_DETECTED")
+                   Auto-posting is strictly BLOCKED
+                   Record quarantined in Exception Queue
 ```
 
----
-
-## Evaluation Benchmark: Naive Baseline vs AI Finance Controller
-
-Measured on the **1,000-record held-out dataset** (`seed=101`) containing 25 distinct adversarial anomaly types using `scripts/evaluate_controller.py`:
-
-| Metric | Naive LLM Matching Baseline | AI Finance Controller (Our System) | Operational Significance |
-| :--- | :---: | :---: | :--- |
-| **Total Records Processed** | 1,000 | **1,000** | Full 3-way multi-source batch |
-| **Clean Matches** | 985 | **910** | Verified clean pairings |
-| **Reported Match Rate** | 98.5% (Inflated) | **91.0%** | Truthful, non-hallucinated throughput |
-| **Verified Auto-Match Precision** | 92.39% | **100.0%** | **Correct Auto-Matches / Total Auto-Matches** |
-| **Clean-Record Recall** | N/A | **100.0%** | **Recovered Clean Matches / Ground-Truth Clean Matches** |
-| **False Positives** | **75 Wrong Matches** | **0** | Zero invalid pairings |
-| **Incorrect Auto-Posts** | **75 Dangerous Posts** | **0 (Observed)** | 0 incorrect auto-posts observed in 1,000 records |
-| **Honest Exceptions Isolated** | 15 (Omitted 75) | **90 (All caught)** | Transparent operational queue |
-| **Total Value Reconciled** | Unverified | **₹19,942,363.32** | Authenticated bank credit |
-| **Total Value at Risk** | Unmonitored | **₹814,357.83** | Prioritized by monetary impact |
-| **Deterministic Engine Time** | 0.001s | **0.053s** | Deterministic engine batch processing duration |
-| **Deterministic Latency (p50)** | -- | **0.053 ms / record** | Processing speed of deterministic Python engine |
-
-*Note on Performance: Latency and processing time reflect local deterministic calculation and matching engine speed, not remote LLM API latency.*  
-*To reproduce these numbers: `python3 scripts/evaluate_controller.py`*
+If an AI proposal hallucinates a match or diverges arithmetically, the Verification Gate catches the discrepancy, blocks auto-posting, and flags an exception.
 
 ---
 
-## Core System Capabilities
+## Exceptions & Human-in-the-Loop
 
-### 1. Three-Way Multi-Source Reconciliation
-The system synchronizes three independent sources of financial data:
-* **Source A: Gateway Settlements**: Itemized order captures, contracted 2.0% MDR, statutory 18% GST, and payout batches.
-* **Source B: Bank Statements**: Actual bank credits, value dates, and raw bank narrations (`CMS/RAZORPAY/...`).
-* **Source C: Merchant Ledger / ERP Invoices**: Customer order records, ERP invoice numbers, and billed order values.
+Unresolved cases are never forced into matches. The system isolates them in an Exception Queue with:
+- **Root-Cause Diagnosis**: Anomaly classification (e.g. `CHARGEBACK_RESERVE`, `WRONG_MDR_TIER`, `DUPLICATE_UTR`).
+- **Audit Waterfall**: Step-by-step arithmetic breakdown of gross, fees, taxes, deductions, and bank credit.
+- **Evidence Trail**: Reference numbers, ARN tags, and settlement timestamps.
+- **Recommended Action**: Action suggestion (`DISPUTE_RAZORPAY`, `JOURNAL_ADJUSTMENT`, `QUARANTINE`, `REFUND_DUPLICATE`).
+- **Operational Priority**: Ranked by monetary impact and SLA urgency.
 
-### 2. Sequential 7-Stage Deterministic Matching Engine
-Matches progress through a transparent, reproducible hierarchy:
-* **Stage 1: `EXACT_UTR`**: Exact match on Unique Transaction Reference between gateway and bank.
-* **Stage 2: `EXACT_AMOUNT_DATE`**: Exact gross/net amount matching on same-day settlement.
-* **Stage 3: `AMOUNT_DATE_WINDOW`**: Reconciles amounts across T+1 and T+2 settlement drift.
-* **Stage 4: `REFERENCE_SIMILARITY`**: Identifies Order IDs, Invoice IDs, or ARNs inside bank narrations.
-* **Stage 5: `SETTLEMENT_AGGREGATION`**: Combinatorial subset-sum solver matching bulk consolidated credits to multiple settlements.
-* **Stage 6: `PARTIAL_REFUND_ADJUSTMENT`**: Reconciles payouts adjusted for partial customer cancellations.
-* **Stage 7: `UNRESOLVED_RESIDUALS`**: Escalates ambiguous records to the AI Residual Resolver.
-
-### 3. Financial Verification Gate & 10-Step Waterfall
-Every candidate transaction and AI proposal is audited through strict Decimal arithmetic:
-
-$$\text{MDR Amount} = \text{Gross Amount} \times 2.00\%$$
-$$\text{GST on MDR} = \text{MDR Amount} \times 18.00\%$$
-$$\text{Theoretical Net Settlement} = \text{Gross} - \text{MDR} - \text{GST} - \text{TDS} - \text{Refunds} - \text{Chargebacks}$$
-$$\text{Variance} = \text{Theoretical Net Settlement} - \text{Actual Bank Credit}$$
-
-If $|\text{Variance}| > \text{₹}0.05$, the transaction is quarantined as an exception. Auto-posting is strictly blocked.
-
-### 4. Zero Incorrect Auto-Posts Invariant (0 Observed in 1,000 Records)
-The Verification Gate mathematically enforces:
-1. **Arithmetic Inviolability**: An AI proposal claiming "MATCHED" with a ₹200 variance is rejected.
-2. **Duplicate UTR Detection**: Re-settling an already credited UTR is halted with `DUPLICATE_UTR_DETECTED`.
-3. **Statutory Tax Validation**: GST calculations diverging from statutory 18% schedules are rejected.
-4. **Human Approval Enforcement**: High-risk actions (`DISPUTE`, `QUARANTINE`, `REFUND`) require human sign-off.
-
-### 5. Closed-Loop Post-Action Verification
-When an operator approves an action in the UI:
-1. Pre-action variance and health scores are snapshotted.
-2. Operational action is booked (`JOURNAL_ADJUSTMENT`, `DISPUTE_RAZORPAY`, `QUARANTINE`).
-3. The Verification Gate re-audits the transaction.
-4. **Variance drops from ₹X to ₹0.00**, closing the loop.
-5. An immutable audit event is persisted, and the Finance Health Score recalculates.
-
-### 6. Vaani — Finance Operations Copilot
-Repositioned as a voice and conversational interface for the AI Finance Controller:
-* **Tool-Grounded Answers**: Calls real backend tools (`audit_transaction`, `get_cash_position`) rather than hallucinating answers.
-* **Visible Tool Execution Traces**: Displays real-time logs (e.g. `✓ audit_transaction (Diagnosed ₹400 variance)`).
-* **Multimodal Interaction**: Supports English and Hindi/Hinglish voice input and natural language chat.
+### Closed-Loop Post-Action Re-Verification
+1. **Operator Approval**: High-risk financial actions require human authorization.
+2. **Execution**: The action executes under a tracked case ID (e.g. `DISP_2026_001`).
+3. **Re-Verification**: The Verification Gate re-audits the transaction.
+4. **Variance Cleared**: Transaction variance drops to **₹0.00**.
+5. **Ledger & Audit Update**: The Finance Health Score recalculates, and an immutable audit record is stored.
 
 ---
 
-## 25 Adversarial Anomaly Taxonomy
+## Vaani — Finance Operations Copilot
 
-The dataset generator (`data/synthetic/generator.py`) injects 25 realistic merchant anomalies:
-
-| # | Anomaly Type | Injected Scenario | Controller Diagnostic |
-| :---: | :--- | :--- | :--- |
-| 1 | **Exact Match** | Ideal clean transaction | `MATCHED` |
-| 2 | **T+1 Settlement Drift** | 24h bank credit delay | `MATCHED` (Stage 3) |
-| 3 | **T+2 Banking Delay** | Weekend settlement delay | `MATCHED` (Stage 3) |
-| 4 | **Duplicate UTR** | Gateway reused prior UTR | `DUPLICATE_UTR` |
-| 5 | **Duplicate Transaction** | Dual capture for same order | `DUPLICATE_TRANSACTION` |
-| 6 | **Partial Refund** | 30% gross refund deducted | `PARTIAL_REFUND` |
-| 7 | **Full Refund** | 100% order cancellation | `FULL_REFUND` |
-| 8 | **Chargeback Holdback** | Unmapped ₹400 gateway deduction | `CHARGEBACK_RESERVE` |
-| 9 | **Missing Settlement** | Gateway capture omitted from bank | `MISSING_SETTLEMENT` |
-| 10 | **Wrong MDR Tier** | 3.5% international card rate | `WRONG_MDR_TIER` |
-| 11 | **Incorrect GST** | GST diverges from 18% schedule | `GST_ROUNDING_ERROR` |
-| 12 | **Bank Fee Deduction** | ₹50 NEFT handling charge | `BANK_FEE` |
-| 13 | **Settlement Aggregation** | 4 settlements in 1 bulk credit | `SETTLEMENT_AGGREGATION` |
-| 14 | **Split Settlement** | Payout split across two batches | `SPLIT_SETTLEMENT` |
-| 15 | **Currency Rounding** | Sub-rupee paise difference | `GST_ROUNDING_ERROR` |
-| 16 | **Missing Invoice** | Unrecorded ERP order draft | `MISSING_INVOICE` |
-| 17 | **Narration Variation** | Alternative UPI bank narration | `MATCHED` (Stage 4) |
-| 18 | **Merchant Name Variation** | Alias merchant name mapping | `MATCHED` (Stage 4) |
-| 19 | **Ref Format Diff** | Truncated reference in narration | `MATCHED` (Stage 4) |
-| 20 | **Incorrect Amount** | ₹350 bank transfer variance | `AMOUNT_MISMATCH` |
-| 21 | **Extra Bank Transaction** | Unmatched orphan bank credit | Unmatched Bank Record |
-| 22 | **Missing Bank Transaction** | Expected payout not in bank | `MISSING_SETTLEMENT` |
-| 23 | **Multi-Item Settlement** | Batched gateway capture | `MATCHED` (Stage 5) |
-| 24 | **Identical Amount Ambiguity** | Multiple txns with same amount | `MATCHED` (Disambiguated) |
-| 25 | **Deliberately Ambiguous** | Unreadable reference & shortage | `UNKNOWN` |
+Vaani provides a conversational and voice interface for the controller:
+- **Tool-Grounded Answers**: Calls backend tools (`audit_transaction`, `get_cash_position`, `execute_action`) rather than generating unverified responses.
+- **Visible Execution Traces**: Displays real-time tool logs (e.g. `✓ audit_transaction: Diagnosed ₹400.00 variance on TXN_98217345`).
+- **Bilingual Interaction**: Supports English, Hindi, and Hinglish queries (*"TXN_98217345 ka status kya hai?"* or *"What is our cash position?"*).
+- **Deterministic Fallbacks**: Employs fast heuristic fallbacks when offline or operating without API keys.
 
 ---
 
-## 5-Minute Evaluator Demo Flow
+## Tech Stack
 
-```
-Step 1: Open http://localhost:5173 -> View Finance Health Score & Attention Queue
-Step 2: Go to Reconciliation -> Click "Run 1,000-Record Batch" (Processes 1,000 held-out records)
-Step 3: Click "Simulate Unsafe AI Proposal" -> Observe verification gate block invalid auto-post
-Step 4: Click TXN_98217345 -> Inspect 10-Step Waterfall & AI Root Cause
-Step 5: Click "Execute Action: Raise Dispute" -> Variance drops to ₹0.00; Health Score updates
-Step 6: Click "Ask Vaani" -> Ask "Why was TXN_98217345 flagged?" -> View tool execution traces
-```
-
-*See [DEMO.md](DEMO.md) for full walkthrough script and 8 golden demo cases.*
+- **Frontend**: React 19, TypeScript, Vite, TailwindCSS, Lucide Icons, Motion
+- **Backend**: Python 3.11+, FastAPI, Pydantic v2, Python `Decimal` engine
+- **AI & Reasoning**: Google Gemini (`gemini-2.5-flash` via `@google/genai`) with offline deterministic fallback
+- **Testing & Evaluation**: Python `unittest` (54 automated tests), synthetic adversarial generator
 
 ---
 
-## Repository Structure
+## Project Structure
 
 ```text
 ai-finance-controller/
-├── backend/                              # Python FastAPI + Decimal Arithmetic Engine
-│   ├── app/
-│   │   ├── main.py                       # FastAPI entrypoint & health telemetry
-│   │   ├── services/
-│   │   │   ├── matching/
-│   │   │   │   └── deterministic_engine.py# 7-stage deterministic matching pipeline
-│   │   │   ├── verifier/
-│   │   │   │   └── verification_gate.py  # Decimal verification gate & safety checks
-│   │   │   ├── reconciliation/
-│   │   │   │   └── three_way_service.py  # 3-way multi-source orchestrator
-│   │   │   ├── ai/
-│   │   │   │   └── residual_resolver.py  # Structured AI residual investigator
-│   │   │   ├── dataset/
-│   │   │   │   └── adversarial_generator.py# 25-anomaly synthetic dataset generator
-│   │   │   ├── action_service.py         # Closed-loop action execution & re-verification
-│   │   │   ├── health_service.py         # Deterministic Finance Health Score formula
-│   │   │   └── cash_forecast_service.py  # 7-day cash runway & liquidity forecasting
-│   │   ├── api/routes/                   # Clean REST API endpoints
-│   │   └── models/                       # Pydantic v2 data schemas
-│   └── tests/                            # 54 Automated Unit, Integration & Safety Tests
-│
-├── frontend/                             # React 19 + TypeScript + TailwindCSS App
-│   ├── src/
-│   │   ├── features/
-│   │   │   ├── dashboard/                # Command center & Attention Queue
-│   │   │   ├── reconciliation/           # 3-way reconciliation ledger & Auditor Drawer
-│   │   │   ├── settlements/              # Payout batches & 7-day cash runway
-│   │   │   ├── exceptions/               # Operations queue & side-by-side evidence
-│   │   │   ├── audit/                    # Immutable chronological audit event ledger
-│   │   │   ├── performance/              # Benchmark profiling & baseline comparison
-│   │   │   └── voice/                    # Vaani copilot modal with tool execution traces
-│   │   └── context/                      # Global state & closed-loop dispatch
-│
-├── data/
-│   ├── synthetic/                        # 500-record benchmark dataset (CSVs + ground truth)
-│   └── evaluation/                       # 1,000-record held-out dataset (CSVs + ground truth)
-│
-├── scripts/
-│   ├── evaluate_controller.py            # Official benchmark evaluation runner
-│   └── benchmark.py                      # Latency and throughput profiler
-│
-├── reports/evaluation/                   # Latest evaluation reports (JSON & Markdown)
-├── ARCHITECTURE.md                       # Comprehensive architectural specification
-├── EVALUATION.md                         # Detailed evaluation methodology & benchmark results
-├── DEMO.md                               # 5-minute evaluator demo walkthrough & golden cases
-├── SECURITY.md                           # Financial risk controls & authorization policies
-├── DATA_MODEL.md                         # Complete ledger entity schemas & data dictionary
-├── DECISIONS.md                          # Architectural Decision Records (ADRs)
-├── TESTING.md                            # Test catalog & failure injection suite
-└── API.md                                # Full REST API documentation & curl examples
+├── backend/app/services/matching/        # 7-stage deterministic matching pipeline
+├── backend/app/services/verifier/        # Decimal verification gate & safety rules
+├── backend/app/services/reconciliation/  # 3-way multi-source orchestrator
+├── backend/app/services/ai/              # AI residual resolver & provider abstractions
+├── backend/app/api/                      # REST API endpoints
+├── backend/tests/                        # 54 unit, integration, and safety tests
+├── frontend/src/features/                # Reconciliation, Exceptions, Settlements, Audit, Vaani
+├── data/                                 # 500-record benchmark and 1,000-record held-out datasets
+├── scripts/                              # evaluate_controller.py, run_tests.py, benchmark.py
+├── reports/evaluation/                   # Evaluation reports (latest.json, latest.md)
+└── docs/                                 # Architectural specifications and ADRs
 ```
 
 ---
 
-## Installation & Setup
+## Running Locally
 
 ### 1. Prerequisites
-* **Python**: 3.11+ (Python 3.14 fully supported)
-* **Node.js**: v20+ or v22+
-* **npm**: v10+
+- Python 3.11+
+- Node.js v20+ or v22+
+- npm v10+
 
 ### 2. Backend Setup
 ```bash
 cd backend
-
-# Create and activate virtual environment
 python3 -m venv venv
-source venv/bin/activate       # On Windows: venv\Scripts\activate
-
-# Install dependencies
+source venv/bin/activate       # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
-# Start FastAPI server
-uvicorn app.main:app --port 8000 --host 0.0.0.0 --reload
+uvicorn app.main:app --port 8000 --reload
 ```
-*Backend API docs: `http://localhost:8000/docs`*
+*API documentation available at `http://localhost:8000/docs`.*
 
 ### 3. Frontend Setup
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start Vite development server
 npm run dev
 ```
-*Frontend application: `http://localhost:5173`*
+*Application available at `http://localhost:5173`.*
 
-### 4. Run Evaluation Benchmark
+### 4. Run Automated Tests
 ```bash
-# Generate datasets & run evaluation
-python3 data/synthetic/generator.py
+python3 scripts/run_tests.py
+```
+*Executes all 54 unit, integration, and safety tests.*
+
+### 5. Run Evaluation Benchmark
+```bash
 python3 scripts/evaluate_controller.py
 ```
 
-### 5. Run Automated Tests (54 Tests)
-```bash
-cd backend
-source venv/bin/activate
-python3 -m unittest discover -s tests -p "test_*.py" -v
-```
+---
+
+## Reproduce the Evaluation
+
+To reproduce the benchmark:
+
+1. *(Optional)* Regenerate datasets with fixed random seeds:
+   ```bash
+   python3 data/synthetic/generator.py
+   ```
+   Generates `data/synthetic/` (500 records, `seed=42`) and `data/evaluation/` (1,000 records, `seed=101`).
+
+2. Run the evaluation script:
+   ```bash
+   python3 scripts/evaluate_controller.py
+   ```
+
+The script evaluates the 1,000-record held-out dataset, validates against ground truth, prints the benchmark comparison, and writes `reports/evaluation/latest.json` and `reports/evaluation/latest.md`.
 
 ---
 
-## Honest Limitations
+## Limitations
 
-1. **Synthetic Data**: Evaluated against realistic Indian merchant synthetic datasets simulating HDFC/ICICI bank statements and Razorpay settlement manifests. Does not connect to production banking APIs without credentials.
-2. **Simulation Mode for External Actions**: Dispute submissions and bank transfers are executed in safe simulation mode with mock external gateways.
-3. **Cash Projections**: 7-day liquidity forecasts are statistical projections based on historical settlement windows and weekend banking cycles, not absolute guarantees.
-4. **AI Reasoning Scope**: AI models investigate root causes and suggest remediations; they are never authorized to bypass mathematical verification or auto-post general ledger entries.
+- **Synthetic Evaluation Data**: Evaluated on synthetic data modeled on Indian merchant banking and Razorpay settlement formats. Not connected to live production records.
+- **Simulation Mode for External Actions**: Action executions (disputes, bank transfers, adjustments) operate in safe simulation mode with mock external gateways.
+- **Cash Forecasting Scope**: 7-day liquidity forecasts are statistical projections based on historical settlement cycles, not guaranteed bank credits.
+- **No Live Banking Integration**: Does not connect to live banking or payment gateway APIs without production credentials.
 
 ---
 
-## Final Product Principle
+## Final Principle
 
-> *"Finance teams should not have to choose between automation and financial safety.*  
-> *The AI Finance Controller automates the repetitive reconciliation work, uses AI to investigate ambiguity, mathematically verifies every financial conclusion, and escalates uncertain cases instead of silently guessing."*
+> “Finance automation should not trade accuracy for convenience.  
+> AI investigates ambiguity, deterministic logic verifies financial truth, and uncertain cases remain visible to humans.”
