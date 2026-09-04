@@ -61,6 +61,7 @@ interface FinanceContextType {
   healthScore: FinanceHealthScore;
   selectedExceptionId: string | null;
   setSelectedExceptionId: (id: string | null) => void;
+  updateExceptionStatus: (id: string, status: any, notes?: string) => void;
   runReconciliationBatch: (totalRecords?: number) => Promise<void>;
   generateNewDataset: (totalRecords?: number, adversarialPct?: number, seed?: number) => Promise<void>;
   resetToDemoDataset: () => Promise<void>;
@@ -112,7 +113,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     discrepancyRatePercentage: 1.82,
     totalDeductions: 6865.69,
     settlementAccuracyScore: 94.5,
-    averageSettlementDelayDays: 1.2
+    averageSettlementDelayDays: 1.2,
+    batches: []
   });
 
   const [cashPosition, setCashPosition] = useState<CashPosition>({
@@ -135,13 +137,13 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     exceptionScore: 90,
     cashPositionScore: 96,
     status: 'OPTIMAL',
-    reasonForChange: '100% precision maintained with zero false auto-postings across 500 records.'
+    reasonForChange: '100% precision maintained with zero false auto-postings across 1,000 records.'
   });
 
   // Load initial datasets from backend
   const loadInitialData = useCallback(async () => {
     try {
-      const [threeWay, bench, exData, stData, ovData, cpData, cfData, insData] = await Promise.all([
+      const results = await Promise.allSettled([
         apiClient.getThreeWayRecords(),
         apiClient.getBenchmarkComparison(),
         apiClient.getExceptions(),
@@ -151,6 +153,15 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         apiClient.getCashForecast(),
         apiClient.getInsights()
       ]);
+
+      const threeWay = results[0].status === 'fulfilled' ? results[0].value : [];
+      const bench = results[1].status === 'fulfilled' ? results[1].value : null;
+      const exData = results[2].status === 'fulfilled' ? results[2].value : [];
+      const stData = results[3].status === 'fulfilled' ? results[3].value : [];
+      const ovData = results[4].status === 'fulfilled' ? results[4].value : null;
+      const cpData = results[5].status === 'fulfilled' ? results[5].value : null;
+      const cfData = results[6].status === 'fulfilled' ? results[6].value : [];
+      const insData = results[7].status === 'fulfilled' ? results[7].value : [];
 
       if (threeWay && threeWay.length > 0) {
         setThreeWayRecords(threeWay);
@@ -171,30 +182,76 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         }));
         setRecords(mappedRecords);
 
+        // Extract all rich exceptions from the three-way dataset
+        const threeWayExceptions: FinancialException[] = threeWay
+          .filter(r => r.current_status === 'EXCEPTION')
+          .map((r, idx) => ({
+            id: `exc_${r.transaction_id}`,
+            exceptionCode: `EX-${100 + idx}`,
+            transactionId: r.transaction_id,
+            orderId: r.order_id,
+            settlementId: r.invoice_id,
+            type: r.root_cause || 'FEE_DISCREPANCY',
+            severity: (Math.abs(r.variance) >= 1000 || r.utr === 'UNKNOWN' || (r.root_cause && r.root_cause.includes('MISSING'))) ? 'CRITICAL' : (Math.abs(r.variance) >= 300 ? 'HIGH' : 'MEDIUM'),
+            status: 'OPEN',
+            expectedAmount: r.expected_settlement,
+            actualAmount: r.actual_bank_credit,
+            difference: Math.abs(r.variance),
+            detectedAt: r.settlement_date || new Date().toISOString(),
+            aiExplanation: r.ai_proposal?.reasoning || `Variance of ₹${Math.abs(r.variance).toFixed(2)} detected between Expected Net Settlement and Bank Credit.`,
+            suggestedAction: r.recommended_action || 'DISPUTE_RAZORPAY',
+            aiConfidence: r.ai_proposal?.confidence || 0.95,
+            customerName: r.customer_name,
+            evidence: {
+              grossAmount: r.gross_amount,
+              mdr: r.mdr,
+              gst: r.gst_on_mdr,
+              utr: r.utr,
+              orderId: r.order_id,
+              waterfall: r.waterfall
+            }
+          }));
+
+        // Merge backend exceptions with three-way exceptions so all 90 exceptions appear
+        const mergedExceptions = [...(exData || [])];
+        const existingTxnIds = new Set(mergedExceptions.map(e => e.transactionId));
+        for (const te of threeWayExceptions) {
+          if (!existingTxnIds.has(te.transactionId)) {
+            mergedExceptions.push(te);
+          }
+        }
+        setExceptions(mergedExceptions);
+
         // Attention priority queue from exceptions
         const unverified = threeWay.filter(r => r.current_status === 'EXCEPTION').slice(0, 5);
         setAttentionItems(unverified.map(r => ({
           id: r.transaction_id,
           transactionId: r.transaction_id,
           type: r.root_cause || 'VARIANCE',
-          severity: (r.variance > 1000 || r.utr === 'UNKNOWN') ? 'CRITICAL' : 'HIGH',
+          severity: (Math.abs(r.variance) > 1000 || r.utr === 'UNKNOWN') ? 'CRITICAL' : 'HIGH',
           title: `${r.root_cause || 'Discrepancy'}: ₹${Math.abs(r.variance).toLocaleString()} on ${r.transaction_id}`,
           amount: r.gross_amount,
           suggestedAction: r.recommended_action || 'MANUAL_REVIEW',
           actionPayload: { transaction_id: r.transaction_id },
           timestamp: r.settlement_date,
-          impactLevel: (r.variance > 1000 || r.utr === 'UNKNOWN') ? 'HIGH IMPACT' : 'MODERATE',
+          impactLevel: (Math.abs(r.variance) > 1000 || r.utr === 'UNKNOWN') ? 'HIGH IMPACT' : 'MODERATE',
           recommendation: `Recommended Action: ${r.recommended_action || 'Review and reconcile'}`
         } as any)));
+      } else if (exData && exData.length > 0) {
+        setExceptions(exData);
       }
 
       if (bench) setBenchmarkData(bench);
-      if (exData) setExceptions(exData);
-      if (stData) setSettlementBatches(stData);
-      if (ovData) setSettlementOverview(ovData);
+      if (stData && stData.length > 0) setSettlementBatches(stData);
+      if (ovData) {
+        setSettlementOverview({
+          ...ovData,
+          batches: ovData.batches || (stData && stData.length > 0 ? stData : [])
+        });
+      }
       if (cpData) setCashPosition(cpData);
-      if (cfData) setCashForecast(cfData);
-      if (insData) setInsights(insData);
+      if (cfData && cfData.length > 0) setCashForecast(cfData);
+      if (insData && insData.length > 0) setInsights(insData);
     } catch (e) {
       console.warn("Error loading backend state:", e);
     }
@@ -229,6 +286,37 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       const bench = await apiClient.getBenchmarkComparison();
       setBenchmarkData(bench);
 
+      // Extract batch exceptions so Exception Center has all 90 items
+      const batchExceptions: FinancialException[] = result.records
+        .filter((r: ThreeWayReconciliationRecord) => r.current_status === 'EXCEPTION')
+        .map((r: ThreeWayReconciliationRecord, idx: number) => ({
+          id: `exc_${r.transaction_id}`,
+          exceptionCode: `EX-${100 + idx}`,
+          transactionId: r.transaction_id,
+          orderId: r.order_id,
+          settlementId: r.invoice_id,
+          type: r.root_cause || 'FEE_DISCREPANCY',
+          severity: (Math.abs(r.variance) >= 1000 || r.utr === 'UNKNOWN' || (r.root_cause && r.root_cause.includes('MISSING'))) ? 'CRITICAL' : (Math.abs(r.variance) >= 300 ? 'HIGH' : 'MEDIUM'),
+          status: 'OPEN',
+          expectedAmount: r.expected_settlement,
+          actualAmount: r.actual_bank_credit,
+          difference: Math.abs(r.variance),
+          detectedAt: r.settlement_date || new Date().toISOString(),
+          aiExplanation: r.ai_proposal?.reasoning || `Variance of ₹${Math.abs(r.variance).toFixed(2)} detected between Expected Net Settlement and Bank Credit.`,
+          suggestedAction: r.recommended_action || 'DISPUTE_RAZORPAY',
+          aiConfidence: r.ai_proposal?.confidence || 0.95,
+          customerName: r.customer_name,
+          evidence: {
+            grossAmount: r.gross_amount,
+            mdr: r.mdr,
+            gst: r.gst_on_mdr,
+            utr: r.utr,
+            orderId: r.order_id,
+            waterfall: r.waterfall
+          }
+        }));
+      setExceptions(batchExceptions);
+
       setMetrics({
         totalRecordsProcessed: result.total_records,
         matchedCount: result.matched_count,
@@ -243,6 +331,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         processingDurationMs: 53,
         batchTimestamp: result.timestamp
       });
+
 
       setReconciliationProgress(100);
       setProgressStepMessage(`COMPLETE: Reconciled ${result.total_records} records with 100% precision (0 incorrect auto-posts observed).`);
@@ -312,6 +401,14 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
   };
 
+  const updateExceptionStatus = (id: string, status: any, notes?: string) => {
+    setExceptions(prev => prev.map(e => e.id === id ? { 
+      ...e, 
+      status, 
+      resolutionNotes: notes || `Operator marked as ${status}` 
+    } : e));
+  };
+
   const handleVoiceNavigation = (tab: AppTab) => {
     setActiveTab(tab);
   };
@@ -342,6 +439,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
       healthScore,
       selectedExceptionId,
       setSelectedExceptionId,
+      updateExceptionStatus,
       runReconciliationBatch,
       generateNewDataset,
       resetToDemoDataset,

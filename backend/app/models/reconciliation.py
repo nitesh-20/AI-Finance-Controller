@@ -168,6 +168,10 @@ class ReconciliationMetricsModel(BaseModel):
     def total_exception_amount(self) -> float:
         return self.totalExceptionAmount
 
+    @property
+    def batch_timestamp(self) -> str:
+        return self.batchTimestamp
+
 class ReconciliationBatchResponse(BaseModel):
     metrics: ReconciliationMetricsModel
     records: List[ProcessedRecordModel]
