@@ -20,7 +20,44 @@ This project delivers a **production-grade AI Finance Controller** designed arou
 
 $$\mathbf{AI\ Proposes.\ Deterministic\ Logic\ Verifies.\ Human\ Approves\ High\text{-}Risk\ Actions.}$$
 
-The system reconciles multi-source financial ledgers across **500+ benchmark records** and **1,000 held-out evaluation records**, detects 25 distinct financial anomaly types, enforces a **Zero Invalid Auto-Posts Invariant**, and executes closed-loop post-action verification.
+The system reconciles multi-source financial ledgers across a **1,000-record held-out evaluation dataset** (`seed=101`), detects 25 distinct financial anomaly types, achieves **0 incorrect auto-posts observed**, and executes closed-loop post-action verification.
+
+---
+
+## Buildathon Evidence
+
+**Track Requirement:**  
+*"Build an agent that closes one finance-ops loop across a 50+ record batch of synthetic data, reporting its match rate and the exceptions it could not resolve."*
+
+**Our Implementation & Measured Proof:**
+* **Evaluated Batch Volume**: **1,000 records** on a held-out adversarial test dataset (`seed=101`) (20x the track minimum of 50 records).
+* **Multi-Source Financial Ingestion**: Synchronizes 3 independent ledgers: Payment gateway settlement data modeled around Razorpay settlement formats, Bank statement credits (MT940/CSV), and Merchant ERP invoice records.
+* **Deterministic 7-Stage Matching Pipeline**: Ordered matching from exact UTR to subset-sum aggregation and partial refund adjustments.
+* **AI-Assisted Residual Investigation**: Gemini structured proposals deployed strictly for narration fuzzy matching and unmapped residual hypothesis generation.
+* **Deterministic Verification Gate**: Strict Python `Decimal` arithmetic enforces statutory 18% GST and debit-credit balance before any candidate match is confirmed.
+* **Empirical Accuracy**: **91.0% verified auto-match rate**, **100.0% verified auto-match precision**, and **100.0% clean-record recall**.
+* **Honest Exceptions**: Exactly **90 exceptions** surfaced with root causes, evidence trails, and recommended remediations.
+* **Safety Invariant**: **0 incorrect auto-posts observed** in the 1,000-record held-out evaluation (zero false positives).
+* **Human-in-the-Loop & Audit Trail**: High-risk financial adjustments require operator authorization and generate immutable audit entries.
+* **Closed-Loop Post-Action Re-Reconciliation**: Operator-approved actions re-run through the verification gate, reducing transaction variance to ₹0.00 and updating the Finance Health Score.
+
+---
+
+## Why Not Just Use an LLM?
+
+Finance systems cannot treat generated text as financial truth. Financial ledgers are governed by strict accounting invariants: debits must equal credits, statutory tax schedules are legally binding, and rounding errors compound into critical balance-sheet variances.
+
+| Responsibility | Generative LLM Alone | AI Finance Controller Architecture |
+| :--- | :--- | :--- |
+| **Monetary Arithmetic** | Unreliable; susceptible to tokenization drift & hallucinations | **Authoritative Python `Decimal`** with paise quantization |
+| **Statutory Tax (GST/TDS)** | Often approximates or rounds arbitrarily | **Deterministic Rule Verification** against statutory 18% schedules |
+| **Matching Decision** | Probabilistic matching risks posting false reconciliations | **Deterministic 7-Stage Engine** establishes verifiable matches |
+| **Ambiguous Bank Narrations** | Effective at pattern matching and semantic synthesis | **AI Residual Resolver** generates structured hypotheses |
+| **Posting Eligibility** | LLM output directly triggers ledger state changes | **Verification Gate** deterministically verifies before posting |
+| **Discrepancy Handling** | Often hallucinates explanations to force a match | **Surfaces Honest Exceptions** with ranked operational priority |
+
+**Core Principle:**  
+$\mathbf{AI\ Proposes.\ Deterministic\ Logic\ Verifies.\ Human\ Approves\ High\text{-}Risk\ Actions.}$
 
 ---
 
@@ -76,16 +113,17 @@ Measured on the **1,000-record held-out dataset** (`seed=101`) containing 25 dis
 | **Total Records Processed** | 1,000 | **1,000** | Full 3-way multi-source batch |
 | **Clean Matches** | 985 | **910** | Verified clean pairings |
 | **Reported Match Rate** | 98.5% (Inflated) | **91.0%** | Truthful, non-hallucinated throughput |
-| **Auto-Match Precision** | 92.39% | **100.0%** | **Zero wrongful auto-posts** |
-| **Recall** | N/A | **100.0%** | 100% of anomalies isolated |
-| **False Positives** | **75 Wrong Matches** | **0** | No invalid revenue recognition |
-| **Incorrect Auto-Posts** | **75 Dangerous Posts** | **0 (Zero Risk)** | Enforced by Verification Gate |
+| **Verified Auto-Match Precision** | 92.39% | **100.0%** | **Correct Auto-Matches / Total Auto-Matches** |
+| **Clean-Record Recall** | N/A | **100.0%** | **Recovered Clean Matches / Ground-Truth Clean Matches** |
+| **False Positives** | **75 Wrong Matches** | **0** | Zero invalid pairings |
+| **Incorrect Auto-Posts** | **75 Dangerous Posts** | **0 (Observed)** | 0 incorrect auto-posts observed in 1,000 records |
 | **Honest Exceptions Isolated** | 15 (Omitted 75) | **90 (All caught)** | Transparent operational queue |
 | **Total Value Reconciled** | Unverified | **₹19,942,363.32** | Authenticated bank credit |
 | **Total Value at Risk** | Unmonitored | **₹814,357.83** | Prioritized by monetary impact |
-| **Total Processing Time** | 0.001s | **0.053s** | Complete 1,000-record batch |
-| **Per-Record Latency (p50)** | -- | **0.053 ms / record** | Sub-millisecond arithmetic speed |
+| **Deterministic Engine Time** | 0.001s | **0.053s** | Deterministic engine batch processing duration |
+| **Deterministic Latency (p50)** | -- | **0.053 ms / record** | Processing speed of deterministic Python engine |
 
+*Note on Performance: Latency and processing time reflect local deterministic calculation and matching engine speed, not remote LLM API latency.*  
 *To reproduce these numbers: `python3 scripts/evaluate_controller.py`*
 
 ---
@@ -118,7 +156,7 @@ $$\text{Variance} = \text{Theoretical Net Settlement} - \text{Actual Bank Credit
 
 If $|\text{Variance}| > \text{₹}0.05$, the transaction is quarantined as an exception. Auto-posting is strictly blocked.
 
-### 4. Zero Wrong Auto-Posting Guarantee
+### 4. Zero Incorrect Auto-Posts Invariant (0 Observed in 1,000 Records)
 The Verification Gate mathematically enforces:
 1. **Arithmetic Inviolability**: An AI proposal claiming "MATCHED" with a ₹200 variance is rejected.
 2. **Duplicate UTR Detection**: Re-settling an already credited UTR is halted with `DUPLICATE_UTR_DETECTED`.
@@ -179,13 +217,14 @@ The dataset generator (`data/synthetic/generator.py`) injects 25 realistic merch
 
 ```
 Step 1: Open http://localhost:5173 -> View Finance Health Score & Attention Queue
-Step 2: Go to Reconciliation -> Click "Run Auto-Reconciliation" (Processes 500 records)
-Step 3: Click TXN_98217345 -> Inspect 10-Step Waterfall & AI Root Cause
-Step 4: Click "Execute Action: Raise Dispute" -> Variance drops to ₹0.00; Health Score updates
-Step 5: Click "Ask Vaani" -> Ask "Why was TXN_98217345 flagged?" -> View tool execution traces
+Step 2: Go to Reconciliation -> Click "Run 1,000-Record Batch" (Processes 1,000 held-out records)
+Step 3: Click "Simulate Unsafe AI Proposal" -> Observe verification gate block invalid auto-post
+Step 4: Click TXN_98217345 -> Inspect 10-Step Waterfall & AI Root Cause
+Step 5: Click "Execute Action: Raise Dispute" -> Variance drops to ₹0.00; Health Score updates
+Step 6: Click "Ask Vaani" -> Ask "Why was TXN_98217345 flagged?" -> View tool execution traces
 ```
 
-*See [DEMO.md](file:///Users/niteshsahu/Desktop/ai-finance-controller/DEMO.md) for full walkthrough script and 8 golden demo cases.*
+*See [DEMO.md](DEMO.md) for full walkthrough script and 8 golden demo cases.*
 
 ---
 

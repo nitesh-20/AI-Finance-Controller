@@ -39,27 +39,106 @@ class ThreeWayReconciliationService:
         self.last_batch_result: Optional[ThreeWayBatchResult] = None
         self.last_processing_duration_sec: float = 0.0
 
+    def load_heldout_dataset(self) -> Tuple[List[RazorpaySettlementItem], List[BankStatementRecord], List[MerchantLedgerEntry]]:
+        """
+        Loads the official 1,000-record held-out evaluation dataset from data/evaluation.
+        """
+        import os
+        import csv
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+        evaluation_dir = os.path.join(base_dir, "data", "evaluation")
+        
+        settle_path = os.path.join(evaluation_dir, "heldout_settlements.csv")
+        bank_path = os.path.join(evaluation_dir, "heldout_bank_statement.csv")
+        ledger_path = os.path.join(evaluation_dir, "heldout_merchant_ledger.csv")
+        
+        if os.path.exists(settle_path) and os.path.exists(bank_path) and os.path.exists(ledger_path):
+            settlements = []
+            with open(settle_path, mode="r", encoding="utf-8") as f:
+                for r in csv.DictReader(f):
+                    settlements.append(
+                        RazorpaySettlementItem(
+                            transaction_id=r["transaction_id"],
+                            order_id=r["order_id"],
+                            utr=r["utr"],
+                            gross_amount=float(r["gross_amount"]),
+                            mdr_amount=float(r["mdr_amount"]),
+                            gst_on_mdr=float(r["gst_on_mdr"]),
+                            tds_amount=float(r.get("tds_amount", 0.0)),
+                            refund_amount=float(r.get("refund_amount", 0.0)),
+                            chargeback_amount=float(r.get("chargeback_amount", 0.0)),
+                            other_deductions=float(r.get("other_deductions", 0.0)),
+                            expected_settlement=float(r["expected_settlement"]),
+                            settlement_date=r["settlement_date"],
+                            payment_method=r["payment_method"],
+                            status=r.get("status", "settled")
+                        )
+                    )
+            bank_statements = []
+            with open(bank_path, mode="r", encoding="utf-8") as f:
+                for r in csv.DictReader(f):
+                    bank_statements.append(
+                        BankStatementRecord(
+                            bank_txn_id=r["bank_txn_id"],
+                            utr=r["utr"],
+                            bank_date=r["bank_date"],
+                            credit_amount=float(r["credit_amount"]),
+                            narration=r["narration"],
+                            bank_name=r.get("bank_name", "HDFC Bank Ltd"),
+                            account_number=r.get("account_number", "XXXX-XXXX-8921")
+                        )
+                    )
+            merchant_invoices = []
+            with open(ledger_path, mode="r", encoding="utf-8") as f:
+                for r in csv.DictReader(f):
+                    merchant_invoices.append(
+                        MerchantLedgerEntry(
+                            invoice_id=r["invoice_id"],
+                            order_id=r["order_id"],
+                            customer_name=r["customer_name"],
+                            gross_order_value=float(r["gross_order_value"]),
+                            created_at=r["created_at"],
+                            merchant_id=r.get("merchant_id", "MID_RAZORPAY_8839"),
+                            tax_amount=float(r.get("tax_amount", 0.0)),
+                            net_receivable=float(r["net_receivable"]),
+                            status=r.get("status", "INVOICED")
+                        )
+                    )
+            return settlements, bank_statements, merchant_invoices
+        return self.dataset_generator.generate_dataset(total_records=1000, seed=101)
+
     def run_reconciliation(
         self,
         razorpay_items: Optional[List[RazorpaySettlementItem]] = None,
         bank_records: Optional[List[BankStatementRecord]] = None,
         ledger_entries: Optional[List[MerchantLedgerEntry]] = None,
-        auto_generate_500: bool = True,
-        seed: int = 42
+        auto_generate_500: bool = False,
+        total_records: int = 1000,
+        seed: int = 101
     ) -> ThreeWayBatchResult:
         """
         Executes complete 3-way reconciliation pipeline.
+        Defaults to the 1,000-record held-out dataset for consistent evaluation metrics.
         """
         start_time = time.time()
         self.verifier.reset_seen_utrs()
 
         # 1. Load or Generate Dataset
-        if auto_generate_500 or not razorpay_items:
-            razorpay_items, bank_records, ledger_entries = self.dataset_generator.generate_dataset(
-                total_records=500,
-                adversarial_pct=0.12,
-                seed=seed
-            )
+        if razorpay_items is None:
+            if auto_generate_500:
+                razorpay_items, bank_records, ledger_entries = self.dataset_generator.generate_dataset(
+                    total_records=500,
+                    adversarial_pct=0.12,
+                    seed=42
+                )
+            elif total_records == 1000:
+                razorpay_items, bank_records, ledger_entries = self.load_heldout_dataset()
+            else:
+                razorpay_items, bank_records, ledger_entries = self.dataset_generator.generate_dataset(
+                    total_records=total_records,
+                    adversarial_pct=0.12,
+                    seed=seed
+                )
 
         # 2. Sequential Deterministic Matching
         resolved_matches, unresolved_rzp, unmatched_banks = self.matching_engine.match_datasets(

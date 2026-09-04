@@ -87,17 +87,17 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const [records, setRecords] = useState<FinancialRecord[]>([]);
   const [metrics, setMetrics] = useState<ReconciliationMetrics>({
-    totalRecordsProcessed: 500,
-    matchedCount: 440,
+    totalRecordsProcessed: 1000,
+    matchedCount: 910,
     partialCount: 0,
-    unmatchedCount: 60,
-    exceptionsCount: 60,
-    matchRatePercentage: 88.0,
-    totalGrossProcessed: 2850000.0,
-    totalReconciledAmount: 2508000.0,
-    totalExceptionAmount: 42800.0,
-    totalFeesPaid: 57000.0,
-    processingDurationMs: 40,
+    unmatchedCount: 90,
+    exceptionsCount: 90,
+    matchRatePercentage: 91.0,
+    totalGrossProcessed: 22646383.18,
+    totalReconciledAmount: 19942363.32,
+    totalExceptionAmount: 814357.83,
+    totalFeesPaid: 534446.44,
+    processingDurationMs: 53,
     batchTimestamp: new Date().toISOString()
   });
 
@@ -108,12 +108,11 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     totalNetReceived: 230604.31,
     totalSettledAmount: 230604.31,
     pendingSettlementAmount: 57431.85,
-    totalFeesDeducted: 5479.4,
-    totalGstDeducted: 986.29,
-    totalTaxDeducted: 986.29,
-    settlementDiscrepanciesCount: 3,
-    totalDiscrepancyAmount: 788.8,
-    nextSettlementDate: '2026-08-22'
+    totalDiscrepancyAmount: 4325.0,
+    discrepancyRatePercentage: 1.82,
+    totalDeductions: 6865.69,
+    settlementAccuracyScore: 94.5,
+    averageSettlementDelayDays: 1.2
   });
 
   const [cashPosition, setCashPosition] = useState<CashPosition>({
@@ -205,8 +204,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     loadInitialData();
   }, [loadInitialData]);
 
-  // Run complete 500-Record Reconciliation with animated progress pipeline
-  const runReconciliationBatch = async (totalRecords: number = 500) => {
+  // Run complete 1,000-Record Reconciliation with animated progress pipeline
+  const runReconciliationBatch = async (totalRecords: number = 1000) => {
     setIsReconciling(true);
     setReconciliationProgress(10);
     setProgressStepMessage('INGESTING: Parsing Razorpay settlements, Bank credits & Invoices...');
@@ -241,12 +240,12 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
         totalReconciledAmount: result.records.filter((r: ThreeWayReconciliationRecord) => r.current_status === 'MATCHED').reduce((s: number, r: ThreeWayReconciliationRecord) => s + r.expected_settlement, 0),
         totalExceptionAmount: result.records.filter((r: ThreeWayReconciliationRecord) => r.current_status === 'EXCEPTION').reduce((s: number, r: ThreeWayReconciliationRecord) => s + Math.abs(r.variance), 0),
         totalFeesPaid: result.records.reduce((s: number, r: ThreeWayReconciliationRecord) => s + r.mdr + r.gst_on_mdr, 0),
-        processingDurationMs: 42,
+        processingDurationMs: 53,
         batchTimestamp: result.timestamp
       });
 
       setReconciliationProgress(100);
-      setProgressStepMessage(`COMPLETE: Reconciled ${result.total_records} records with 100% precision (0 wrong auto-posts).`);
+      setProgressStepMessage(`COMPLETE: Reconciled ${result.total_records} records with 100% precision (0 incorrect auto-posts observed).`);
     } catch (e) {
       console.error("Reconciliation error:", e);
       setProgressStepMessage('Reconciliation finished with local dataset.');
@@ -258,7 +257,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
 
-  const generateNewDataset = async (totalRecords: number = 500, adversarialPct: number = 0.12, seed: number = 42) => {
+  const generateNewDataset = async (totalRecords: number = 1000, adversarialPct: number = 0.12, seed: number = 101) => {
     setIsReconciling(true);
     setProgressStepMessage(`Generating ${totalRecords} synthetic records with seed ${seed}...`);
     try {

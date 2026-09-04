@@ -24,19 +24,31 @@ The table below reflects real, unmanipulated benchmark results measured via `scr
 | **Dataset Size** | 1,000 Records | 1,000 Records | Multi-source payment batch |
 | **Clean Matches** | 985 | 910 | Real, verified clean matches |
 | **Reported Match Rate** | 98.5% (Inflated) | 91.0% | Truthful throughput |
-| **Auto-Match Precision** | 92.39% | **100.0%** | **Zero wrongful auto-postings** |
-| **Recall** | N/A | **100.0%** | Complete exception coverage |
+| **Verified Auto-Match Precision** | 92.39% | **100.0%** | **Correct Auto-Matches / Total Auto-Matches** |
+| **Clean-Record Recall** | N/A | **100.0%** | **Recovered Clean Matches / Ground-Truth Clean Matches** |
 | **False Positives** | **75 Wrong Matches** | **0** | No invalid revenue recognition |
-| **Incorrect Auto-Posts** | **75 Dangerous Posts** | **0 (Zero Risk)** | Enforced by Verification Gate |
+| **Incorrect Auto-Posts** | **75 Dangerous Posts** | **0 (Observed)** | 0 incorrect auto-posts observed in 1,000 records |
 | **Honest Exceptions Isolated**| 15 (Omitted 75) | **90 (All caught)** | Routed to Exception Queue |
 | **Total Value Reconciled** | Unverified | **₹19,942,363.32** | Authenticated bank credit |
 | **Total Value at Risk** | Unmonitored | **₹814,357.83** | Prioritized by monetary impact |
-| **Total Execution Duration** | 0.001s | **0.053s** | Complete 1,000-record batch |
-| **Median Latency (p50)** | -- | **0.053 ms / record** | Sub-millisecond arithmetic speed |
+| **Deterministic Engine Time** | 0.001s | **0.053s** | Complete 1,000-record batch |
+| **Deterministic Latency (p50)** | -- | **0.053 ms / record** | Local deterministic calculation speed |
 
 ---
 
-## 3. Why Naive LLM Matching Fails
+## 3. Mathematical Metric Definitions
+
+* **Auto-Match Precision**:
+  $$\text{Precision} = \frac{\text{Correct Verified Auto-Matches}}{\text{Total Verified Auto-Matches}} = \frac{910}{910} = 100.0\%$$
+* **Clean-Record Recall**:
+  $$\text{Clean-Record Recall} = \frac{\text{Correctly Recovered Clean Matches}}{\text{All Ground-Truth Clean Matches}} = \frac{910}{910} = 100.0\%$$
+  *(Note: Clean-record recall specifically measures recovery of uncompromised clean records, distinct from overall dataset recall across anomaly classes).*
+* **Deterministic Engine Speed**:
+  Measured latency reflects local Python `Decimal` calculation and sequential matching engine duration, not remote LLM API latency.
+
+---
+
+## 4. Why Naive LLM Matching Fails
 
 A naive reconciliation approach matching solely on references or asking an LLM to reconcile numbers produces high apparent match rates (98.5%) but commits fatal financial errors:
 1. **Duplicate UTRs**: Auto-posts secondary settlements with the same UTR, doubling revenue in error.
@@ -44,7 +56,7 @@ A naive reconciliation approach matching solely on references or asking an LLM t
 3. **Partial Refunds**: Treats reduced bank payouts as clean matches rather than customer refund deductions.
 4. **Missing Invoices**: Matches gateway transactions even when no merchant ERP invoice exists.
 
-In contrast, the **AI Finance Controller** rejects 100% of these unsafe cases, achieving **100% verified auto-match precision** and **0 wrong auto-posts**.
+In contrast, the **AI Finance Controller** rejects 100% of these unsafe cases, achieving **100.0% verified auto-match precision** and **0 incorrect auto-posts observed in the 1,000-record held-out evaluation**.
 
 ---
 

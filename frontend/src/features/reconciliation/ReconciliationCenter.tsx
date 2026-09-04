@@ -102,12 +102,12 @@ export const ReconciliationCenter: React.FC = () => {
           </button>
           
           <button
-            onClick={() => runReconciliationBatch(500)}
+            onClick={() => runReconciliationBatch(1000)}
             disabled={isReconciling}
             className="inline-flex items-center space-x-1.5 rounded-md bg-[#0c66e4] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-[#0052cc] transition-colors disabled:opacity-50"
           >
             <RotateCw className={`h-3.5 w-3.5 ${isReconciling ? 'animate-spin' : ''}`} />
-            <span>{isReconciling ? 'Reconciling...' : 'Run 500-Record Reconciliation'}</span>
+            <span>{isReconciling ? 'Reconciling...' : 'Run 1,000-Record Reconciliation'}</span>
           </button>
         </div>
       </div>

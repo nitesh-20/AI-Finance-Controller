@@ -41,7 +41,7 @@ export const apiClient = {
     }
   },
 
-  runThreeWayReconciliation: async (totalRecords: number = 500, adversarialPct: number = 0.12): Promise<{
+  runThreeWayReconciliation: async (totalRecords: number = 1000, adversarialPct: number = 0.12): Promise<{
     total_records: number;
     matched_count: number;
     exception_count: number;
@@ -64,13 +64,40 @@ export const apiClient = {
     }
   },
 
+  // Authoritative Evaluation & Failure Injection
+  getLatestEvaluation: async (): Promise<any> => {
+    try {
+      return await fetchJson<any>(`${API_BASE_URL}/api/evaluation/latest`);
+    } catch (e) {
+      console.warn("Failed to fetch evaluation report:", e);
+      return null;
+    }
+  },
+
+  simulateUnsafeAIProposal: async (): Promise<{
+    status: string;
+    is_eligible_for_posting: boolean;
+    rejection_reason: string;
+    auto_post_blocked: boolean;
+    exception_created: boolean;
+    variance_amount: number;
+    expected_amount: number;
+    actual_amount: number;
+    verification_checks_failed: string[];
+    verification_checks_passed: string[];
+  }> => {
+    return await fetchJson(`${API_BASE_URL}/api/evaluation/simulate-unsafe-proposal`, {
+      method: 'POST'
+    });
+  },
+
   // Performance & Benchmarking
   getBenchmarkComparison: async (): Promise<BenchmarkComparisonResponse> => {
     return await fetchJson<BenchmarkComparisonResponse>(`${API_BASE_URL}/api/performance/benchmark`);
   },
 
   // Dataset Generation
-  generateDataset: async (totalRecords: number = 500, adversarialPct: number = 0.12, seed: number = 42) => {
+  generateDataset: async (totalRecords: number = 1000, adversarialPct: number = 0.12, seed: number = 101) => {
     return await fetchJson(`${API_BASE_URL}/api/dataset/generate?total_records=${totalRecords}&adversarial_pct=${adversarialPct}&seed=${seed}`, {
       method: 'POST'
     });

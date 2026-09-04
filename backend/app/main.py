@@ -1,3 +1,6 @@
+import os
+os.environ.setdefault("PYDANTIC_DISABLE_PLUGINS", "1")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .core.config import settings
@@ -5,7 +8,7 @@ from .core.logging import setup_logging, logger
 from .api import (
     reconciliation, settlements, exceptions, cash, insights, 
     agent, reports, audit, health_router, action_router, 
-    performance, dataset
+    performance, dataset, evaluation
 )
 
 setup_logging()
@@ -38,6 +41,7 @@ app.include_router(performance.router, prefix=settings.API_PREFIX)
 app.include_router(dataset.router, prefix=settings.API_PREFIX)
 app.include_router(health_router.router, prefix=settings.API_PREFIX)
 app.include_router(action_router.router, prefix=settings.API_PREFIX)
+app.include_router(evaluation.router, prefix=settings.API_PREFIX)
 
 import time
 import sys

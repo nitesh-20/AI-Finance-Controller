@@ -13,18 +13,20 @@ router = APIRouter(prefix="/reconciliation", tags=["Reconciliation"])
 
 @router.post("/run", response_model=ThreeWayBatchResult)
 def run_batch_reconciliation(
-    total_records: int = Query(500, description="Total records to generate and reconcile"),
+    total_records: int = Query(1000, description="Total records to reconcile (default: 1000 held-out evaluation dataset)"),
     adversarial_pct: float = Query(0.12, description="Percentage of adversarial edge cases")
 ):
     """
-    Executes complete 3-Way Reconciliation across 500 records:
+    Executes complete 3-Way Reconciliation across 1,000 held-out records:
     1. Ingestion of Razorpay settlements, Bank credits, and Merchant invoices
-    2. Level 1-4 Deterministic Matching
+    2. 7-Stage Deterministic Matching
     3. AI Residual Resolution for unresolved cases
-    4. Deterministic Verification Gate enforcement
+    4. Deterministic Verification Gate enforcement (Zero Invalid Auto-Posts)
     """
     service = get_three_way_service()
-    return service.run_reconciliation(auto_generate_500=True)
+    if total_records == 500:
+        return service.run_reconciliation(auto_generate_500=True)
+    return service.run_reconciliation(total_records=total_records)
 
 @router.get("/records", response_model=List[ThreeWayReconciliationRecord])
 def get_reconciliation_records(

@@ -26,11 +26,12 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ### Minute 1: Overview & Reconciliation Loop
 1. Navigate to **Overview**:
-   - Observe real-time financial health score (e.g. `88 / 100`) and the "Attention Queue" prioritizing high-variance exceptions.
-   - Note the verified metrics: ₹1.99 Cr total value reconciled, 91.0% match rate, **0 wrong auto-posts**.
+   - Observe real-time financial health score (e.g. `82 / 100`) and the "Attention Queue" prioritizing high-variance exceptions.
+   - Note the verified metrics from the **Official Evaluation Proof**: ₹1.99 Cr total value reconciled, 91.0% match rate, 100.0% precision, and **0 incorrect auto-posts observed**.
+   - Click the red header button **"Simulate Unsafe AI Proposal"** to watch the deterministic verification gate reject an invalid AI match and block auto-posting.
 2. Click **Reconciliation** on the sidebar:
-   - Click the blue button **"Run Auto-Reconciliation"** to execute the multi-stage matching pipeline across 500 records.
-   - Watch the animated 10-step pipeline banner report progress in real-time.
+   - Click the blue button **"Run 1,000-Record Reconciliation"** to execute the multi-stage matching pipeline across 1,000 held-out records.
+   - Watch the animated pipeline banner report progress across ingestion, matching, AI residual analysis, and verification.
 
 ---
 
