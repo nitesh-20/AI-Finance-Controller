@@ -66,7 +66,7 @@ interface FinanceContextType {
   resetToDemoDataset: () => Promise<void>;
   fetchTransactionAudit: (transactionId: string) => Promise<void>;
   executeAction: (transactionId: string, actionType: string, notes?: string) => Promise<boolean>;
-  exportReport: () => void;
+  exportReport: (type?: string) => void;
   handleVoiceNavigation: (tab: AppTab) => void;
 }
 

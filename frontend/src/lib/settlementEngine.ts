@@ -1,6 +1,7 @@
 import { SettlementRecord, SettlementOverview } from '../types';
 
 export function aggregateSettlementOverview(settlements: SettlementRecord[]): SettlementOverview {
+  let totalGross = 0;
   let totalSettled = 0;
   let pendingAmount = 0;
   let totalFees = 0;
@@ -9,6 +10,7 @@ export function aggregateSettlementOverview(settlements: SettlementRecord[]): Se
   let totalDiscrepancyAmount = 0;
 
   for (const s of settlements) {
+    totalGross += (s.grossAmount || s.grossVolume || 0);
     if (s.status === 'PROCESSED' || s.status === 'settled' || s.status === 'DISCREPANCY' || s.status === 'discrepancy') {
       totalSettled += (s.netSettlementAmount || s.netSettlementActual || 0);
       totalFees += (s.totalFees || s.gatewayFees || 0);
@@ -23,12 +25,16 @@ export function aggregateSettlementOverview(settlements: SettlementRecord[]): Se
   }
 
   return {
+    totalGrossSettled: totalGross,
+    totalNetReceived: totalSettled,
     totalSettledAmount: totalSettled,
     pendingSettlementAmount: pendingAmount,
     totalFeesDeducted: totalFees,
+    totalGstDeducted: totalTax,
     totalTaxDeducted: totalTax,
     settlementDiscrepanciesCount: discrepanciesCount,
     totalDiscrepancyAmount: totalDiscrepancyAmount,
     nextSettlementDate: '2026-03-26'
   };
 }
+
