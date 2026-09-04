@@ -138,7 +138,25 @@ class TransactionAuditorService:
                 evidence.append(f"Expected GST: ₹{gst_on_mdr:,.2f}")
                 evidence.append(f"Actual GST: ₹{(record.actual_gst or gst_on_mdr):,.2f}")
 
-            # Rule G: General Variance / Review
+            # Rule G: Section 194-O TDS Withholding Difference
+            elif (record.notes and "tds" in record.notes.lower()) or abs(variance - round(gross * 0.01, 2)) <= 0.50:
+                root_cause = RootCauseClassification.TDS_DIFFERENCE.value
+                confidence = 95
+                why_flagged = f"Statutory TDS under Section 194-O (1.00%) withheld ₹{variance:,.2f} without statutory form 16A mapping."
+                recommended_action = RecommendedAction.JOURNAL_ADJUSTMENT.value
+                evidence.append("Section 194-O E-commerce operator withholding applied")
+                evidence.append(f"Withheld amount: ₹{variance:,.2f}")
+
+            # Rule H: Cross-border Currency Markup / FX Fee
+            elif (record.notes and any(k in record.notes.lower() for k in ["fx", "forex", "currency", "markup", "cross-border"])) or (record.payment_method and "international" in record.payment_method.lower()):
+                root_cause = RootCauseClassification.CURRENCY_MARKUP.value
+                confidence = 93
+                why_flagged = f"Cross-border transaction incurred unitemized currency conversion markup of ₹{variance:,.2f}."
+                recommended_action = RecommendedAction.JOURNAL_ADJUSTMENT.value
+                evidence.append("Cross-border settlement currency conversion")
+                evidence.append(f"FX markup deducted: ₹{variance:,.2f}")
+
+            # Rule I: General Variance / Review
             else:
                 root_cause = RootCauseClassification.SETTLEMENT_FEE_VARIANCE.value
                 confidence = 88
